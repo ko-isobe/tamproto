@@ -16,6 +16,8 @@
     "mysql": "~2.11.1",
     "request": "^2.83.0",
     "sequelize": "~3.23.6",
-    "serve-favicon": "~2.4.2"
+    "serve-favicon": "~2.4.2",
+    "cbor": "~5.0.1",
+    "jws": "~3.2.2"
   }
 }
