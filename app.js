@@ -4,6 +4,7 @@ var logger = require('morgan');
 var http = require('http');
 var https = require('https');
 var fs = require('fs');
+var bodyParser = require('body-parser');
 
 var apis = require('./routes/apis');
 var panels = require('./routes/panels');
@@ -19,6 +20,8 @@ var opts = {
   };
 
 app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views',path.join(__dirname,'views'));
 app.set('view engine','ejs');

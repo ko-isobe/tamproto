@@ -13,7 +13,14 @@
  router.post('/tam',function(req,res,next){
    // check POST content
       console.log(req.headers);
-
+      console.log(req.body);
+      
+      if(!Object.keys(req.body).length){
+         // body is empty
+         console.log("TAM API launch");
+      }else{
+         console.log("TAM ProcessOTrpmessage launch");
+      }
    // pass the TAM's OTrP Implementation (ProcessConnect?)
 
    //teepImplReturn = true;
