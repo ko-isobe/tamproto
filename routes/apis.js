@@ -1,6 +1,7 @@
  var express = require('express');
  var router = express.Router();
  var jws = require('jws');
+ var otrp = require('../otrp.js');
 
  router.get('/',function(req,res,next){
     var param = {"値":"This is sample"};
@@ -15,9 +16,11 @@
       console.log(req.headers);
       console.log(req.body);
       
+   var let = null;
       if(!Object.keys(req.body).length){
          // body is empty
          console.log("TAM API launch");
+         let = otrp.init();
       }else{
          console.log("TAM ProcessOTrpmessage launch");
       }
