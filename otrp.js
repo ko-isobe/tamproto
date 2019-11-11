@@ -3,7 +3,7 @@ const cose = require('cose-js');
 
 var init = function(){
     console.log("called otrp init");
-    
+    /*
     // QueryRequest
     var token = Buffer.from('tamtokentest').toString('hex');
     var queryRequest = {
@@ -34,7 +34,7 @@ var init = function(){
     });
 
     //var msg_authenc_wrapper = 
-
+    */
     return false;
 }
 
