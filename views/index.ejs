@@ -7,7 +7,7 @@
     <body>
         <h1>TAM UI</h1>
         <hr>
-        <%= files %>
+        <!-- <%= files %> -->
         <h2>TA Images</h2>
         <table>
             <tr>
@@ -18,20 +18,22 @@
             <% files.forEach(function(value) { %>
                 <tr>
                     <td><%= value %></td>
-                    <td>Link</td>
+                    <td><a href="<%= fullURL+value %>">Get</a></td>
                     <td>Delete</td>
                 </tr>
             <% }); %>
+            <!--
             <tr>
                 <td>AAA</td>
                 <td>Link</td>
                 <td>Delete</td>
             </tr>
+            -->
         </table>
         <h2>Upload Image</h2>
         <div>
-            <form action="./upload" method="POST">
-
+            <form action="./upload" method="POST" enctype="multipart/form-data">
+                <input type="file" name="file">
                 <button type="submit">Upload</button>
             </form>
         </div>

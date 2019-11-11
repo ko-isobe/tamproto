@@ -28,6 +28,7 @@ app.set('view engine','ejs');
 
 app.use('/api',apis);
 app.use('/panel',panels);
+app.use('/TAs',express.static('TAs'));
 
 var listener = http.createServer(app).listen(8888, function(){
     console.log('Express HTTP server');
