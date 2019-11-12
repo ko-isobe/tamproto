@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "body-parser": "~1.19.0",
-    "cookie-parser": "~1.4.3",
+    "node-jose": "~1.1.3",
     "debug": "~2.6.3",
     "express": "~4.15.2",
     "ejs": "~2.7.1",
