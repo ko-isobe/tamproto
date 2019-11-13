@@ -31,7 +31,7 @@ app.use('/panel',panels);
 app.use('/TAs',express.static('TAs'));
 
 var listener = http.createServer(app).listen(8888, function(){
-    console.log('Express HTTP server');
+    console.log('Express HTTP  server listening on port ' + listener.address().port);
 });
 
 var tls_listener = https.createServer(opts, app).listen(8433, function () {
