@@ -20,7 +20,7 @@ var opts = {
   };
 
 app.use(logger('dev'));
-app.use(bodyParser.json());
+app.use(bodyParser.json({type:'application/*+json',inflate:false}));
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views',path.join(__dirname,'views'));
@@ -29,6 +29,16 @@ app.set('view engine','ejs');
 app.use('/api',apis);
 app.use('/panel',panels);
 app.use('/TAs',express.static('TAs'));
+
+// app.use('/', function(req,res,next){
+//     console.log("Root(/) request:");
+//     console.log(req.headers);
+//     console.log(req.body);
+
+//     res.status(404);
+//     var errorMsg = {"error":"Not found...."};
+//     res.send(JSON.stringify(errorMsg));
+// });
 
 var listener = http.createServer(app).listen(8888, function(){
     console.log('Express HTTP  server listening on port ' + listener.address().port);
