@@ -19,7 +19,7 @@
                 <tr>
                     <td><%= value %></td>
                     <td><a href="<%= fullURL+value %>">Get</a></td>
-                    <td>Delete</td>
+                    <td><a href="<%= fullURL+'?taname='+value %>">Delete</a></td>
                 </tr>
             <% }); %>
             <!--

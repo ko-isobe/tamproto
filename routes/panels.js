@@ -36,6 +36,7 @@ router.get('/upload',function(req,res){
 router.post('/upload', upload.single('file'), function (req, res, next) {
     res.locals.status = "uploaded";
     res.locals.fullURL = req.protocol + '://' + req.get('host') + '/TAs/';
+    res.locals.delURL = req.protocol + '://' + req.get('host') + '/panel/delete';
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
@@ -43,6 +44,10 @@ router.post('/upload', upload.single('file'), function (req, res, next) {
         res.locals.files = fileList;
         res.render("./index.ejs");
     });
+});
+
+router.get('/delete',function(req,res){
+
 });
 
 module.exports = router;
