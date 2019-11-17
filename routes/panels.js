@@ -15,7 +15,7 @@ var upload = multer({ storage:storage });
 
 router.get('/', function (req, res, next) {
     var fileList;
-    res.locals.fullURL = req.protocol + '://' + req.get('host') + '/TAs/';
+    res.locals.fullURL = req.protocol + '://' + req.get('host');
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
@@ -35,8 +35,8 @@ router.get('/upload',function(req,res){
 
 router.post('/upload', upload.single('file'), function (req, res, next) {
     res.locals.status = "uploaded";
-    res.locals.fullURL = req.protocol + '://' + req.get('host') + '/TAs/';
-    res.locals.delURL = req.protocol + '://' + req.get('host') + '/panel/delete';
+    res.locals.fullURL = req.protocol + '://' + req.get('host');
+    //res.locals.delURL = req.protocol + '://' + req.get('host') + '/panel/delete';
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
@@ -47,7 +47,20 @@ router.post('/upload', upload.single('file'), function (req, res, next) {
 });
 
 router.get('/delete',function(req,res){
+    var delTAname = req.query.taname;
+    if(delTAname != '' && fs.existsSync('./TAs/'+delTAname)){
+        fs.unlinkSync('./TAs/'+delTAname);
+        console.log("deleted TA:" + delTAname);
+    }
 
+    res.locals.fullURL = req.protocol + '://' + req.get('host');
+    fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
+        if (err) throw err;
+        fileList = files;
+        console.log(fileList);
+        res.locals.files = fileList;
+        res.render("./index.ejs");
+    });
 });
 
 module.exports = router;
