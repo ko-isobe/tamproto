@@ -63,6 +63,7 @@ router.post('/tam', function (req, res, next) {
          }
       };
       res.send(JSON.stringify(teepObj));
+      res.end();
       return;
    } else {
       console.log("TAM ProcessOTrPmessage launch");
@@ -104,6 +105,7 @@ router.post('/tam', function (req, res, next) {
          console.log("no content");
          res.set(null);
          res.status(204).send('no content');
+         res.end();
       }
       return;
    }
