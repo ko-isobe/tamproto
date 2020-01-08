@@ -1,7 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var jws = require('jws');
-var otrp = require('../otrp.js');
+var teepP = require('../teep-p.js');
 var jose = require('node-jose');
 var fs = require('fs');
 
@@ -35,7 +35,7 @@ router.post('/tam', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body);
-
+   console.log(teepP.teepp);
    var let = null;
    //set response header
    res.set({

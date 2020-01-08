@@ -2,7 +2,7 @@
 const cose = require('cose-js');
 
 var init = function(){
-    console.log("called otrp init");
+    console.log("called TEEP-P init");
     /*
     // QueryRequest
     var token = Buffer.from('tamtokentest').toString('hex');
@@ -38,7 +38,14 @@ var init = function(){
     return false;
 }
 
-var otrp = new Object();
-otrp.init = init;
+var queryRequest = new Object();
+queryRequest.type = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
+queryRequest.token = 'hoge'; // The value in the TOKEN field is used to match requests to responses.
+queryRequest.request = [2]; // request Trusted Apps lists for device
 
-module.exports = otrp;
+
+var teepp  = new Object();
+teepp.init = init;
+teepp.queryRequest = queryRequest;
+
+module.exports = teepp;
