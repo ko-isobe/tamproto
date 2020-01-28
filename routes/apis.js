@@ -31,6 +31,42 @@ router.get('/', function (req, res, next) {
 
 //var teepImplReturn = true;
 
+let teepImplHandler = function(req){
+   let ret = null;
+   if (req.headers['content-length'] == 0) {
+      // body is empty
+      console.log("TAM API launch");
+      //Call OTrP Implementation's ProcessConnect API
+      ret = teepP.initMessage();
+      //res.send(JSON.stringify(ret));
+      //res.end();
+      return ret;
+   } else {
+      console.log("TAM ProcessTEEP-Pmessage instance");
+      console.log(req.body);
+
+      ret = teepP.parse(req.body);
+      //
+      if (ret == null) {
+         //invalid message from client device
+         console.log("no content");
+         //res.set(null);
+         //res.status(204).send('no content');
+         //res.end();
+         return ret;
+      } else {
+         //send valid response to client device
+         return ret;
+         //res.set(ret);
+         //res.status(200);
+         //res.send(JSON.stringify(ret));
+         //res.end();
+      }
+      return;
+   }
+}
+
+// no encrypt
 router.post('/tam', function (req, res, next) {
    // check POST content
    console.log(req.headers);
@@ -46,36 +82,87 @@ router.post('/tam', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   //if (!Object.keys(req.body).length) {
-   if (req.headers['content-length'] == 0) {
-      // body is empty
-      console.log("TAM API launch");
-      //Call OTrP Implementation's ProcessConnect API
-      ret = teepP.initMessage();
+   ret = teepImplHandler(req);
+
+   if (ret == null){
+      res.set(null);
+      res.status(204);
+      res.end();
+   }else{
+      //res.set(ret);
       res.send(JSON.stringify(ret));
       res.end();
-      return;
-   } else {
-      console.log("TAM ProcessTEEP-Pmessage instance");
-      console.log(req.body);
-
-      ret = teepP.parse(req.body);
-      //
-      if (ret == null) {
-         //invalid message from client device
-         console.log("no content");
-         res.set(null);
-         res.status(204).send('no content');
-         res.end();
-      } else {
-         //send valid response to client device
-         res.set(ret);
-         res.status(200);
-         res.send(JSON.stringify(ret));
-         res.end();
-      }
-      return;
    }
+
+   return;
+   //if (!Object.keys(req.body).length) {
+   // if (req.headers['content-length'] == 0) {
+   //    // body is empty
+   //    console.log("TAM API launch");
+   //    //Call OTrP Implementation's ProcessConnect API
+   //    ret = teepP.initMessage();
+   //    res.send(JSON.stringify(ret));
+   //    res.end();
+   //    return;
+   // } else {
+   //    console.log("TAM ProcessTEEP-Pmessage instance");
+   //    console.log(req.body);
+
+   //    ret = teepP.parse(req.body);
+   //    //
+   //    if (ret == null) {
+   //       //invalid message from client device
+   //       console.log("no content");
+   //       res.set(null);
+   //       res.status(204).send('no content');
+   //       res.end();
+   //    } else {
+   //       //send valid response to client device
+   //       res.set(ret);
+   //       res.status(200);
+   //       res.send(JSON.stringify(ret));
+   //       res.end();
+   //    }
+   //    return;
+   // }
+});
+
+//with encrypt
+router.post('/tam_jose',function(req,res,next){
+   // check POST content
+   console.log(req.headers);
+   console.log(req.body); // encrypted body
+   let ret = null;
+
+   //set response header
+   res.set({
+      'Content-Type': 'application/teep+json',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'",
+      'Referrer-Policy': 'no-referrer'
+   });   
+
+   //decrypt(TBF)
+
+   //process content
+   ret = teepImplHandler(req);
+
+   //encrypt(TBF)
+
+   if (ret == null){
+      res.set(null);
+      res.status(204);
+      res.end();
+   }else{
+      //res.set(ret);
+      res.send(JSON.stringify(ret));
+      res.end();
+   }
+
+   return;
+
+
 });
 
 router.post('/install', function (req, res, next) {
