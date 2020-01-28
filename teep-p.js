@@ -1,7 +1,7 @@
 //var textenc = require('text-encoding');
 const cose = require('cose-js');
 
-var init = function(){
+var init = function () {
     console.log("called TEEP-P init");
     /*
     // QueryRequest
@@ -38,14 +38,78 @@ var init = function(){
     return false;
 }
 
-var queryRequest = new Object();
-queryRequest.type = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-queryRequest.token = 'hoge'; // The value in the TOKEN field is used to match requests to responses.
-queryRequest.request = [2]; // request Trusted Apps lists for device
+var initMessage = function () {
+    //make secure token(TBF)
+    //record token(TBF)
+    //generate queryRequest
+    var queryRequest = new Object();
+    queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
+    queryRequest.TOKEN = '1'; // The value in the TOKEN field is used to match requests to responses.
+    queryRequest.REQUEST = [2]; // request Trusted Apps lists for device
 
+    return queryRequest;
+}
 
-var teepp  = new Object();
+var parseQueryResponse = function(obj){
+    console.log("*"+ arguments.callee.name);
+    //verify token(TBF)
+    console.log(obj.TOKEN);
+    //record information(TBF)
+    console.log(obj.TA_LIST);
+    //judge?
+    
+    //build TA installß message
+    let trustedAppInstall = new Object();
+    trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
+    trustedAppInstall.TOKEN = '2'; // 
+    trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
+    trustedAppInstall.MANIFEST_LIST[0] = {"Vendor_ID":"ietf-teep-wg","Class_ID":"3cfa03b5-d4b1-453a-9104-4e4bef53b37e","Device_ID":"teep-device"};
+
+    return trustedAppInstall;
+}
+
+var parseSuccessMessage = function(obj){
+    console.log("*"+ arguments.callee.name);
+    //verify token(TBF)
+    console.log(obj.TOKEN);
+    //record information(TBF)
+    console.log(obj.MSG);
+
+    return;
+}
+
+var parse = function(obj){
+    console.log("TEEP-Protocol:parse");
+    let ret = null;
+    //check TEEP Protocol message
+    console.log(obj);
+
+    //JSON Scheme validation(TBF)
+
+    switch (obj.TYPE) {
+        case 2 : //queryResponse
+            ret = parseQueryResponse(obj);
+            break;
+        case 5 :
+            // Success
+            parseSuccessMessage(obj);
+            return;
+            break;
+        case 6 :
+            // Error
+            break;
+        default:
+            console.log("ERR!: cannot handle this message type :" + obj.TYPE);
+            return null;
+    }
+
+    return ret;
+}
+
+var teepp = new Object();
 teepp.init = init;
-teepp.queryRequest = queryRequest;
+teepp.initMessage = initMessage;
+teepp.parse = parse;
+//teepp.queryRequest = queryRequest;
 
 module.exports = teepp;

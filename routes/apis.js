@@ -1,7 +1,7 @@
 var express = require('express');
 var router = express.Router();
 var jws = require('jws');
-var teepP = require('../teep-p.js');
+var teepP = require("../teep-p");
 var jose = require('node-jose');
 var fs = require('fs');
 
@@ -35,8 +35,8 @@ router.post('/tam', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body);
-   console.log(teepP.teepp);
-   var let = null;
+   let ret = null;
+
    //set response header
    res.set({
       'Content-Type': 'application/teep+json',
@@ -47,64 +47,31 @@ router.post('/tam', function (req, res, next) {
    });
 
    //if (!Object.keys(req.body).length) {
-   if(req.headers['content-length']==0){
+   if (req.headers['content-length'] == 0) {
       // body is empty
       console.log("TAM API launch");
       //Call OTrP Implementation's ProcessConnect API
-      //let = otrp.init();
-
-      //Dummy GetDeviceStateTBSRequest
-      var teepObj = {
-         "GetDeviceStateTBSRequest": {
-            "ver": "1.0",
-            "rid": "000000",
-            "tid": "000001",
-            "ocspdat": "0x0000",
-         }
-      };
-      res.send(JSON.stringify(teepObj));
+      ret = teepP.initMessage();
+      res.send(JSON.stringify(ret));
       res.end();
       return;
    } else {
-      console.log("TAM ProcessOTrPmessage launch");
+      console.log("TAM ProcessTEEP-Pmessage instance");
       console.log(req.body);
-      //dummy install message
-      //var tanameObj = JSON.parse(req.body);
-      var tanameObj = req.body;
-      if ("taname" in tanameObj && fs.existsSync('./TAs/'+tanameObj['taname'])) {
-         // ta install
-         console.log(tanameObj['taname']);
-         var f_pt = fs.readFileSync("./TAs/" + tanameObj['taname'], function (err, data) {
-            console.log(err);
-         });
 
-         jose.JWE.createEncrypt({ alg: 'RSA1_5', contentAlg: 'A128CBC-HS256', format: "flattened" }, jwk_tee_pubkey)
-            .update(f_pt).final().then(function (result) {
-               f = JSON.stringify(result);
-
-               jose.JWS.createSign({ alg: 'RS256', format: 'flattened' }, jwk_tam_privkey)
-                  .update(f).final().then(function (result) {
-                     f = JSON.stringify(result);
-                     res.statusCode = 200;
-                     res.set({
-                        'Content-Type': 'application/teep+json',
-                        'Cache-Control': 'no-store',
-                        'X-Content-Type-Options': 'nosniff',
-                        'Content-Security-Policy': "default-src 'none'",
-                        'Referrer-Policy': 'no-referrer'
-                     });
-                     res.setHeader('Content-Length', f.length);
-                     res.end(f);
-                  });
-            });
-
-         return;
-      } else {
-         // Call OTrP Implementation's
-         //let = otrp.handleMessage();
+      ret = teepP.parse(req.body);
+      //
+      if (ret == null) {
+         //invalid message from client device
          console.log("no content");
          res.set(null);
          res.status(204).send('no content');
+         res.end();
+      } else {
+         //send valid response to client device
+         res.set(ret);
+         res.status(200);
+         res.send(JSON.stringify(ret));
          res.end();
       }
       return;
