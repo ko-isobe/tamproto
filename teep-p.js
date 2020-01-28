@@ -63,8 +63,7 @@ var parseQueryResponse = function(obj){
     trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
     trustedAppInstall.TOKEN = '2'; // 
     trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-    trustedAppInstall.MANIFEST_LIST[0] = {"Vendor_ID":"ietf-teep-wg","Class_ID":"3cfa03b5-d4b1-453a-9104-4e4bef53b37e","Device_ID":"teep-device"};
-
+    trustedAppInstall.MANIFEST_LIST[0] = "http://127.0.0.1/TAs/8d82573a-926d-4754-9353-32dc29997f74.ta";
     return trustedAppInstall;
 }
 
