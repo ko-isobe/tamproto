@@ -43,8 +43,6 @@ router.get('/', function (req, res, next) {
    res.send(param);
 });
 
-//var teepImplReturn = true;
-
 let teepImplHandler = function (req,body) {
    let ret = null;
    if (req.headers['content-length'] == 0) {
@@ -201,28 +199,28 @@ router.post('/tam_jose', function (req, res, next) {
    return;
 
    //process content
-   ret = teepImplHandler(plainRequest);
+   // ret = teepImplHandler(plainRequest);
 
-   //encrypt(TBF)
-   let encryptedResponse = null;
-   jose.JWE.createEncrypt(keystore)
-      .update(ret)
-      .final()
-      .then(function(x){
-         encryptedResponse = x;
-      });
+   // //encrypt(TBF)
+   // let encryptedResponse = null;
+   // jose.JWE.createEncrypt(keystore)
+   //    .update(ret)
+   //    .final()
+   //    .then(function(x){
+   //       encryptedResponse = x;
+   //    });
 
-   if (ret == null) {
-      res.set(null);
-      res.status(204);
-      res.end();
-   } else {
-      //res.set(ret);
-      res.send(JSON.stringify(encryptedResponse));
-      res.end();
-   }
+   // if (ret == null) {
+   //    res.set(null);
+   //    res.status(204);
+   //    res.end();
+   // } else {
+   //    //res.set(ret);
+   //    res.send(JSON.stringify(encryptedResponse));
+   //    res.end();
+   // }
 
-   return;
+   // return;
 
 
 });
@@ -321,10 +319,5 @@ router.get('/testgen',function(req,res){
       res.send(val);
       res.end();
    });
-   // console.log(sampleEncryptedRequest);
-   // console.log("あああ");
-   // res.status(200);
-   // res.send(sampleEncryptedRequest);
-   // res.end();
 });
 module.exports = router;
