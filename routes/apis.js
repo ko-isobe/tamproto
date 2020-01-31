@@ -6,21 +6,35 @@ var jose = require('node-jose');
 var fs = require('fs');
 
 var keystore = jose.JWK.createKeyStore();
-var tee_pubkey = fs.readFileSync("./key/spaik-pub.jwk", function (err, data) {
+var tee_pubkey = fs.readFileSync("./key/test-jw_tee_identity_tee-mytee-public.jwk", function (err, data) {
    console.log(data);
 });
 
-var tam_privkey = fs.readFileSync("./key/tam-mytam-rsa-key.pem", function (err, data) {
+var tam_pubkey = fs.readFileSync("./key/test-jw_tsm_identity_tam-mytam-public.jwk", function(err,data){
    console.log(data);
 });
 
-var jwk_tam_privkey, jwk_tee_pubkey;
+var tam_privkey = fs.readFileSync("./key/test-jw_tsm_identity_private_tam-mytam-private.jwk", function (err, data) {
+   console.log(data);
+});
+
+var tee_privkey = fs.readFileSync("./key/test-jw_tee_identity_private_tee-mytee-private.jwk", function(err,data){
+   console.log(data);
+});
+
+var jwk_tam_privkey, jwk_tee_pubkey, jwk_tee_privkey, jwk_tam_pubkey;
 
 keystore.add(tee_pubkey, "json").then(function (result) {
    jwk_tee_pubkey = result;
 });
-keystore.add(tam_privkey, "pem").then(function (result) {
+keystore.add(tam_privkey, "json").then(function (result) {
    jwk_tam_privkey = result;
+});
+keystore.add(tee_privkey,"json").then(function(result){
+   jwk_tee_privkey = result;
+});
+keystore.add(tam_pubkey,"json").then(function(result){
+   jwk_tam_pubkey = result;
 });
 
 router.get('/', function (req, res, next) {
@@ -31,7 +45,7 @@ router.get('/', function (req, res, next) {
 
 //var teepImplReturn = true;
 
-let teepImplHandler = function(req){
+let teepImplHandler = function (req,body) {
    let ret = null;
    if (req.headers['content-length'] == 0) {
       // body is empty
@@ -43,9 +57,9 @@ let teepImplHandler = function(req){
       return ret;
    } else {
       console.log("TAM ProcessTEEP-Pmessage instance");
-      console.log(req.body);
+      console.log(body);
 
-      ret = teepP.parse(req.body);
+      ret = teepP.parse(body);
       //
       if (ret == null) {
          //invalid message from client device
@@ -82,13 +96,13 @@ router.post('/tam', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   ret = teepImplHandler(req);
+   ret = teepImplHandler(req,req.body);
 
-   if (ret == null){
+   if (ret == null) {
       res.set(null);
       res.status(204);
       res.end();
-   }else{
+   } else {
       //res.set(ret);
       res.send(JSON.stringify(ret));
       res.end();
@@ -128,7 +142,7 @@ router.post('/tam', function (req, res, next) {
 });
 
 //with encrypt
-router.post('/tam_jose',function(req,res,next){
+router.post('/tam_jose', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body); // encrypted body
@@ -141,22 +155,70 @@ router.post('/tam_jose',function(req,res,next){
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
-   });   
+   });
 
-   //decrypt(TBF)
+   //decrypt & verify(TBF)
+   let plainRequest = null;
+   console.log(req.body);
+   console.log(typeof req.body);
+   const decryptReq = jose.JWE.createDecrypt(keystore)
+      .decrypt(req.body);
+   const verifyReq = decryptReq.then(function(x){
+      console.log("verifyReq");
+      console.log(x.payload);
+      console.log(x.payload.toString());
+      return jose.JWS.createVerify(keystore).verify(x.payload.toString());
+   });
+   const signRes = verifyReq.then(function(x){
+      console.log("signRes");
+      console.log(x.payload.toString());
+      return jose.JWS.createSign(jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req,JSON.parse(x.payload.toString())))).final();
+   })
+   const encryptRes = signRes.then(function(x){
+      console.log("encryptRes");
+      console.log(x);
+      return jose.JWE.createEncrypt(jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+   });
+   const finalize = encryptRes.then(function(x){
+      console.log("finalize sending");
+      console.log(x);
+      if (x == null) {
+         res.set(null);
+         res.status(204);
+         res.end();
+      } else {
+         //res.set(ret);
+         res.send(JSON.stringify(x));
+         res.end();
+      }
+   });
+   //console.log(plainRequest);
+   // jose.JWS.createVerify(keystore)
+   //    .verify(JSON.stringify(plainRequest))
+   //    .then(function (result) {
+   //       console.log(result);
+   // });
+   return;
 
    //process content
-   ret = teepImplHandler(req);
+   ret = teepImplHandler(plainRequest);
 
    //encrypt(TBF)
+   let encryptedResponse = null;
+   jose.JWE.createEncrypt(keystore)
+      .update(ret)
+      .final()
+      .then(function(x){
+         encryptedResponse = x;
+      });
 
-   if (ret == null){
+   if (ret == null) {
       res.set(null);
       res.status(204);
       res.end();
-   }else{
+   } else {
       //res.set(ret);
-      res.send(JSON.stringify(ret));
+      res.send(JSON.stringify(encryptedResponse));
       res.end();
    }
 
@@ -224,4 +286,45 @@ router.post('/delete', function (req, res, next) {
       });
 });
 
+let signAndEncrypt =  function(data) {
+   const p = new Promise((resolve,reject)=>{
+      jose.JWS.createSign({format:'compact'},jwk_tee_privkey).update(JSON.stringify(data)).final().then(
+         function(result){
+            console.log(result);
+            console.log(typeof result);
+            //signedRequest = result;
+            jose.JWE.createEncrypt(jwk_tam_privkey)
+            .update(result)
+            .final().then(
+               async function(ret){
+                  console.log(ret);
+                  val = ret;
+                  //return ret;
+                  resolve(ret);
+               }
+            );
+         }
+      );
+   });
+   return p;
+};
+
+router.get('/testgen',function(req,res){
+   //sign and encrypt by TEEP agent key
+   //QueryResponse
+   let sampleRequest = {"TYPE":2,"TOKEN":"1","TA_LIST":[{"Vendor_ID":"ietf-teep-wg"}]};
+  
+   //signAndEncrypt(sampleRequest);
+   signAndEncrypt(sampleRequest).then((val) => {
+      res.status(200);
+      console.log(val)
+      res.send(val);
+      res.end();
+   });
+   // console.log(sampleEncryptedRequest);
+   // console.log("あああ");
+   // res.status(200);
+   // res.send(sampleEncryptedRequest);
+   // res.end();
+});
 module.exports = router;

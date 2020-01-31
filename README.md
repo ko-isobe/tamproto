@@ -7,7 +7,7 @@
 + ```npm install```を実行し、必要なnpmパッケージをインストール
 + ```node app.js ```で実行開始
 + Ctrl+Cで終了できます。
-## Dockerあり
+## Dockerあり(推奨)
 + ```docker build -t tamproto .```にてDockerイメージをビルド
 + ```docker run -p 8433:8433 -p 8888:8888 tamproto```でコンテナを起動
 + Ctrl+Cでコンテナから抜けたのち、```docker stop```でコンテナを停止させてください
@@ -28,3 +28,6 @@
 # TODOリスト
 - TAMのTA管理UI
 - TAMの実機能の実装
+- 鍵管理UI
+- JSON Schema対応
+- TEEP Messageテスト機能

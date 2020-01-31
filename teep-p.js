@@ -82,6 +82,7 @@ var parse = function(obj){
     let ret = null;
     //check TEEP Protocol message
     console.log(obj);
+    console.log(typeof obj);
 
     //JSON Scheme validation(TBF)
 
