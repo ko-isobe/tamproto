@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Key Management UI</title>
+    <script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>
+</head>
+<style>
+    table {
+        border-collapse: collapse;
+    }
+
+    tr {
+        border-bottom: dashed #c8c8cb;
+    }
+
+    th {
+        background: #cbf266;
+        padding: 0 1em;
+    }
+
+    td {
+        text-align: center;
+        padding: 0.5em;
+    }
+</style>
+
+<body>
+    <h1>Key Management UI</h1>
+    <hr>
+    <h2>Key Detail - <%= keyname %></h2>
+    <% if(typeof err !== 'undefined'){ %>
+        <p>ERR!: <%= err %></p>
+    <% }else{ %>
+        <% if(typeof ret !== 'undefined'){ %>
+            <code class="prettyprint lang-js">
+                <%= ret %>
+            </code>
+    <% }} %>
+</body>
+
+</html>

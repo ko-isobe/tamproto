@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Key Management UI</title>
+</head>
+<style>
+    table {
+        border-collapse: collapse;
+    }
+
+    tr {
+        border-bottom: dashed #c8c8cb;
+    }
+
+    th {
+        background: #cbf266;
+        padding: 0 1em;
+    }
+
+    td {
+        text-align: center;
+        padding: 0.5em;
+    }
+</style>
+
+<body>
+    <h1>Key Management UI</h1>
+    <hr>
+    <!-- <%= files %> -->
+    <h2>Keys</h2>
+    <table>
+        <tr>
+            <th>File Name</th>
+            <th>Detail</th>
+            <th>Download</th>
+            <th>Delete</th>
+        </tr>
+        <% files.forEach(function(value) { %>
+        <tr>
+            <td><%= value.name %></td>
+            <td><a href="<%= fullURL+'/panel/key_detail?keyname='+value.name %>">Show</a></td>
+            <td><a href="<%= fullURL+'/key/'+value.name %>">Get</a></td>
+            <td><a href="<%= fullURL+'/panel/key_delete?keyname='+value.name %>">Delete</a></td>
+        </tr>
+        <% }); %>
+        <!--
+            <tr>
+                <td>AAA</td>
+                <td>Link</td>
+                <td>Delete</td>
+            </tr>
+            -->
+    </table>
+    <h2>Upload Key</h2>
+    <div>
+        <form action="<%= fullURL+'/panel/' %>/key_upload" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file">
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+</body>
+
+</html>

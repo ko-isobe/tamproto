@@ -29,6 +29,7 @@ app.set('view engine','ejs');
 app.use('/api',apis);
 app.use('/panel',panels);
 app.use('/TAs',express.static('TAs'));
+app.use('/key',express.static('key'));
 
 // app.use('/', function(req,res,next){
 //     console.log("Root(/) request:");
