@@ -1,41 +1,63 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>TAM UI</title>
-    </head>
-    <body>
-        <h1>TAM UI</h1>
-        <hr>
-        <!-- <%= files %> -->
-        <h2>TA Images</h2>
-        <table>
-            <tr>
-                <th>FileName</th>
-                <th>Download</th>
-                <th>Delete</th>
-            </tr>
-            <% files.forEach(function(value) { %>
-                <tr>
-                    <td><%= value %></td>
-                    <td><a href="<%= fullURL+'/TAs/'+value %>">Get</a></td>
-                    <td><a href="<%= fullURL+'/panel/delete?taname='+value %>">Delete</a></td>
-                </tr>
-            <% }); %>
-            <!--
+
+<head>
+    <meta charset="UTF-8">
+    <title>TAM UI</title>
+</head>
+<style>
+    table {
+        border-collapse: collapse;
+    }
+
+    tr {
+        border-bottom: dashed #c8c8cb;
+    }
+
+    th {
+        background: #b4ebfa;
+        padding: 0 1em;
+    }
+
+    td {
+        text-align: center;
+        padding: 0.5em;
+    }
+</style>
+
+<body>
+    <h1>TAM UI</h1>
+    <hr>
+    <!-- <%= files %> -->
+    <h2>TA Images</h2>
+    <table>
+        <tr>
+            <th>File Name</th>
+            <th>Download</th>
+            <th>Delete</th>
+        </tr>
+        <% files.forEach(function(value) { %>
+        <tr>
+            <td><%= value.name %></td>
+            <td><a href="<%= fullURL+'/TAs/'+value.name %>">Get</a></td>
+            <td><a href="<%= fullURL+'/panel/delete?taname='+value.name %>">Delete</a></td>
+        </tr>
+        <% }); %>
+        <!--
             <tr>
                 <td>AAA</td>
                 <td>Link</td>
                 <td>Delete</td>
             </tr>
             -->
-        </table>
-        <h2>Upload Image</h2>
-        <div>
-            <form action="<%= fullURL+'/panel/' %>/upload" method="POST" enctype="multipart/form-data">
-                <input type="file" name="file">
-                <button type="submit">Upload</button>
-            </form>
-        </div>
-    </body>
+    </table>
+    <h2>Upload Image</h2>
+    <div>
+        <form action="<%= fullURL+'/panel/' %>/upload" method="POST" enctype="multipart/form-data">
+            <input type="file" name="file">
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+</body>
+
 </html>
