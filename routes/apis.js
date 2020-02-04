@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-var jws = require('jws');
+//var jws = require('jws');
 var teepP = require("../teep-p");
 var jose = require('node-jose');
 var fs = require('fs');
