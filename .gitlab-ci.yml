@@ -1,0 +1,20 @@
+stages:
+    - build
+    - test
+
+dockerbuild:
+    stage: build
+    only:
+        - master
+    tags:
+        - shell
+    script:
+        - docker build --rm -f "Dockerfile" -t tamproto:latest "."
+
+launchtest:
+    stage: test
+    tags:
+        - shell
+    script:
+        - docker run -p 8433:8433 -p 8888:8888 tamproto --rm --name tamproto_launchtest
+        - docker stop tamproto_launchtest
