@@ -16,5 +16,5 @@ launchtest:
     tags:
         - shell
     script:
-        - docker run -p 8433:8433 -p 8888:8888 tamproto --rm --name tamproto_launchtest
+        - docker run -p 8433:8433 -d -p 8888:8888 --rm --name tamproto_launchtest tamproto
         - docker stop tamproto_launchtest
