@@ -155,30 +155,30 @@ router.post('/tam_jose', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   //decrypt & verify(TBF)
+   //decrypt & verify
    let plainRequest = null;
    console.log(req.body);
    console.log(typeof req.body);
    const decryptReq = jose.JWE.createDecrypt(keystore)
       .decrypt(req.body);
    const verifyReq = decryptReq.then(function(x){
-      console.log("verifyReq");
-      console.log(x.payload);
+      console.log("[verifyReq]");
+      console.log(x);
       console.log(x.payload.toString());
       return jose.JWS.createVerify(keystore).verify(x.payload.toString());
    });
    const signRes = verifyReq.then(function(x){
-      console.log("signRes");
+      console.log("[signRes]");
       console.log(x.payload.toString());
       return jose.JWS.createSign(jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req,JSON.parse(x.payload.toString())))).final();
    })
    const encryptRes = signRes.then(function(x){
-      console.log("encryptRes");
+      console.log("[encryptRes]");
       console.log(x);
-      return jose.JWE.createEncrypt(jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+      return jose.JWE.createEncrypt({fields:{alg:'RSA1_5'}},jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
    });
    const finalize = encryptRes.then(function(x){
-      console.log("finalize sending");
+      console.log("[finally sending]");
       console.log(x);
       if (x == null) {
          res.set(null);
@@ -291,7 +291,7 @@ let signAndEncrypt =  function(data) {
             console.log(result);
             console.log(typeof result);
             //signedRequest = result;
-            jose.JWE.createEncrypt(jwk_tam_privkey)
+            jose.JWE.createEncrypt({fields:{alg:'RSA1_5'}},jwk_tam_privkey)
             .update(result)
             .final().then(
                async function(ret){
