@@ -58,6 +58,8 @@ let teepImplHandler = function (req,body) {
       console.log(body);
 
       ret = teepP.parse(body);
+      console.log("TAM ProcessTEEP-Pmessage response");
+      console.log(ret);
       //
       if (ret == null) {
          //invalid message from client device
