@@ -171,13 +171,14 @@ router.post('/tam_jose', function (req, res, next) {
          resolve(dummyObj);
       });
    } else {
-      const decryptReq = jose.JWE.createDecrypt(keystore)
+      const decryptReq = jose.JWE.createDecrypt(jwk_tam_privkey)
          .decrypt(req.body);
       verifyReq = decryptReq.then(function (x) {
          console.log("[verifyReq]");
          console.log(x);
          console.log(x.payload.toString());
-         return jose.JWS.createVerify(keystore).verify(x.payload.toString());
+         let temp = JSON.parse(x.payload);
+         return jose.JWS.createVerify(keystore).verify(temp);
       });
    }
 
