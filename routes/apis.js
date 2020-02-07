@@ -10,7 +10,7 @@ var tee_pubkey = fs.readFileSync("./key/test-jw_tee_identity_tee-mytee-public.jw
    console.log(data);
 });
 
-var tam_pubkey = fs.readFileSync("./key/test-jw_tsm_identity_tam-mytam-public.jwk", function(err,data){
+var tam_pubkey = fs.readFileSync("./key/test-jw_tsm_identity_tam-mytam-public.jwk", function (err, data) {
    console.log(data);
 });
 
@@ -18,7 +18,7 @@ var tam_privkey = fs.readFileSync("./key/test-jw_tsm_identity_private_tam-mytam-
    console.log(data);
 });
 
-var tee_privkey = fs.readFileSync("./key/test-jw_tee_identity_private_tee-mytee-private.jwk", function(err,data){
+var tee_privkey = fs.readFileSync("./key/test-jw_tee_identity_private_tee-mytee-private.jwk", function (err, data) {
    console.log(data);
 });
 
@@ -30,10 +30,10 @@ keystore.add(tee_pubkey, "json").then(function (result) {
 keystore.add(tam_privkey, "json").then(function (result) {
    jwk_tam_privkey = result;
 });
-keystore.add(tee_privkey,"json").then(function(result){
+keystore.add(tee_privkey, "json").then(function (result) {
    jwk_tee_privkey = result;
 });
-keystore.add(tam_pubkey,"json").then(function(result){
+keystore.add(tam_pubkey, "json").then(function (result) {
    jwk_tam_pubkey = result;
 });
 
@@ -43,7 +43,7 @@ router.get('/', function (req, res, next) {
    res.send(param);
 });
 
-let teepImplHandler = function (req,body) {
+let teepImplHandler = function (req, body) {
    let ret = null;
    if (req.headers['content-length'] == 0) {
       // body is empty
@@ -96,7 +96,7 @@ router.post('/tam', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   ret = teepImplHandler(req,req.body);
+   ret = teepImplHandler(req, req.body);
 
    if (ret == null) {
       res.set(null);
@@ -161,25 +161,37 @@ router.post('/tam_jose', function (req, res, next) {
    let plainRequest = null;
    console.log(req.body);
    console.log(typeof req.body);
-   const decryptReq = jose.JWE.createDecrypt(keystore)
-      .decrypt(req.body);
-   const verifyReq = decryptReq.then(function(x){
-      console.log("[verifyReq]");
-      console.log(x);
-      console.log(x.payload.toString());
-      return jose.JWS.createVerify(keystore).verify(x.payload.toString());
-   });
-   const signRes = verifyReq.then(function(x){
+   console.log(req.headers['content-length']);
+   let verifyReq = null;
+   if (req.headers['content-length'] == 0) {
+      console.log("null request");
+      verifyReq = new Promise(function(resolve,reject){
+         let dummyObj = new Object();
+         dummyObj.payload = "{}";
+         resolve(dummyObj);
+      });
+   } else {
+      const decryptReq = jose.JWE.createDecrypt(keystore)
+         .decrypt(req.body);
+      verifyReq = decryptReq.then(function (x) {
+         console.log("[verifyReq]");
+         console.log(x);
+         console.log(x.payload.toString());
+         return jose.JWS.createVerify(keystore).verify(x.payload.toString());
+      });
+   }
+
+   const signRes = verifyReq.then(function (x) {
       console.log("[signRes]");
       console.log(x.payload.toString());
-      return jose.JWS.createSign(jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req,JSON.parse(x.payload.toString())))).final();
+      return jose.JWS.createSign(jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req, JSON.parse(x.payload.toString())))).final();
    })
-   const encryptRes = signRes.then(function(x){
+   const encryptRes = signRes.then(function (x) {
       console.log("[encryptRes]");
       console.log(x);
-      return jose.JWE.createEncrypt({fields:{alg:'RSA1_5'}},jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+      return jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' } }, jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
    });
-   const finalize = encryptRes.then(function(x){
+   const finalize = encryptRes.then(function (x) {
       console.log("[finally sending]");
       console.log(x);
       if (x == null) {
@@ -286,34 +298,34 @@ router.post('/delete', function (req, res, next) {
       });
 });
 
-let signAndEncrypt =  function(data) {
-   const p = new Promise((resolve,reject)=>{
-      jose.JWS.createSign({format:'compact'},jwk_tee_privkey).update(JSON.stringify(data)).final().then(
-         function(result){
+let signAndEncrypt = function (data) {
+   const p = new Promise((resolve, reject) => {
+      jose.JWS.createSign({ format: 'compact' }, jwk_tee_privkey).update(JSON.stringify(data)).final().then(
+         function (result) {
             console.log(result);
             console.log(typeof result);
             //signedRequest = result;
-            jose.JWE.createEncrypt({fields:{alg:'RSA1_5'}},jwk_tam_privkey)
-            .update(result)
-            .final().then(
-               async function(ret){
-                  console.log(ret);
-                  val = ret;
-                  //return ret;
-                  resolve(ret);
-               }
-            );
+            jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
+               .update(result)
+               .final().then(
+                  async function (ret) {
+                     console.log(ret);
+                     val = ret;
+                     //return ret;
+                     resolve(ret);
+                  }
+               );
          }
       );
    });
    return p;
 };
 
-router.get('/testgen',function(req,res){
+router.get('/testgen', function (req, res) {
    //sign and encrypt by TEEP agent key
    //QueryResponse
-   let sampleRequest = {"TYPE":2,"TOKEN":"1","TA_LIST":[{"Vendor_ID":"ietf-teep-wg"}]};
-  
+   let sampleRequest = { "TYPE": 2, "TOKEN": "1", "TA_LIST": [{ "Vendor_ID": "ietf-teep-wg" }] };
+
    //signAndEncrypt(sampleRequest);
    signAndEncrypt(sampleRequest).then((val) => {
       res.status(200);
