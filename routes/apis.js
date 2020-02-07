@@ -184,12 +184,12 @@ router.post('/tam_jose', function (req, res, next) {
    const signRes = verifyReq.then(function (x) {
       console.log("[signRes]");
       console.log(x.payload.toString());
-      return jose.JWS.createSign(jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req, JSON.parse(x.payload.toString())))).final();
+      return jose.JWS.createSign({ format: 'flattened' }, jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req, JSON.parse(x.payload.toString())))).final();
    })
    const encryptRes = signRes.then(function (x) {
       console.log("[encryptRes]");
       console.log(x);
-      return jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' } }, jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+      return jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' }, format: 'flattened' }, jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
    });
    const finalize = encryptRes.then(function (x) {
       console.log("[finally sending]");
