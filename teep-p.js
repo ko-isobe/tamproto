@@ -29,7 +29,7 @@ var parseQueryResponse = function (obj) {
     let installed = false;
     obj.TA_LIST.forEach(element => {
         if (!installed) {
-            installed = (element === trustedAppUUID);
+            installed = (element.Class_ID === trustedAppUUID);
         }
     });
 
