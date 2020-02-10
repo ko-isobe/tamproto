@@ -159,13 +159,16 @@ router.post('/tam_jose', function (req, res, next) {
 
    //decrypt & verify
    let plainRequest = null;
+   let nullPromise = new Promise(function (resolve, reject) {
+      resolve(null);
+   });
    console.log(req.body);
    console.log(typeof req.body);
    console.log(req.headers['content-length']);
    let verifyReq = null;
    if (req.headers['content-length'] == 0) {
       console.log("null request");
-      verifyReq = new Promise(function(resolve,reject){
+      verifyReq = new Promise(function (resolve, reject) {
          let dummyObj = new Object();
          dummyObj.payload = "{}";
          resolve(dummyObj);
@@ -185,12 +188,21 @@ router.post('/tam_jose', function (req, res, next) {
    const signRes = verifyReq.then(function (x) {
       console.log("[signRes]");
       console.log(x.payload.toString());
-      return jose.JWS.createSign({ format: 'flattened' }, jwk_tam_privkey).update(JSON.stringify(teepImplHandler(req, JSON.parse(x.payload.toString())))).final();
+      let response = teepImplHandler(req, JSON.parse(x.payload.toString()));
+      if (response == null) {
+         return nullPromise;
+      } else {
+         return jose.JWS.createSign({ format: 'flattened' }, jwk_tam_privkey).update(JSON.stringify(response)).final();
+      }
    })
    const encryptRes = signRes.then(function (x) {
       console.log("[encryptRes]");
       console.log(x);
-      return jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' }, format: 'flattened' }, jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+      if (x == null) {
+         return nullPromise;
+      } else {
+         return jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' }, format: 'flattened' }, jwk_tee_pubkey).update(Buffer.from(JSON.stringify(x))).final();
+      }
    });
    const finalize = encryptRes.then(function (x) {
       console.log("[finally sending]");
@@ -301,13 +313,13 @@ router.post('/delete', function (req, res, next) {
 
 let signAndEncrypt = function (data) {
    const p = new Promise((resolve, reject) => {
-      jose.JWS.createSign({ format: 'compact' }, jwk_tee_privkey).update(JSON.stringify(data)).final().then(
+      jose.JWS.createSign({ format: "flattened" }, jwk_tee_privkey).update(JSON.stringify(data)).final().then(
          function (result) {
             console.log(result);
             console.log(typeof result);
             //signedRequest = result;
-            jose.JWE.createEncrypt({ fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
-               .update(result)
+            jose.JWE.createEncrypt({format:"flattened", fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
+               .update(JSON.stringify(result))
                .final().then(
                   async function (ret) {
                      console.log(ret);
@@ -325,7 +337,7 @@ let signAndEncrypt = function (data) {
 router.get('/testgen', function (req, res) {
    //sign and encrypt by TEEP agent key
    //QueryResponse
-   let sampleRequest = { "TYPE": 2, "TOKEN": "1", "TA_LIST": [{ "Vendor_ID": "ietf-teep-wg" }] };
+   let sampleRequest = { "TYPE": 5, "TOKEN": "1", "TA_LIST": [{ "Vendor_ID": "ietf-teep-wg" }] };
 
    //signAndEncrypt(sampleRequest);
    signAndEncrypt(sampleRequest).then((val) => {
