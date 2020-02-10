@@ -1,5 +1,6 @@
 //var textenc = require('text-encoding');
 const ip = require('ip');
+const app = require('./app');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 var init = function () {
@@ -42,12 +43,13 @@ var parseQueryResponse = function (obj) {
         trustedAppDelete.TA_LIST[0] = trustedAppUUID;
         return trustedAppDelete;
     } else {
+        console.log(app);
         //build TA install message
         let trustedAppInstall = new Object();
         trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
         trustedAppInstall.TOKEN = '2'; // 
         trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-        trustedAppInstall.MANIFEST_LIST[0] = "http://"+ ip.address() +":8888/TAs/"+ trustedAppUUID+".ta";
+        trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
         return trustedAppInstall;
     }
 

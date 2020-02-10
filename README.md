@@ -9,7 +9,7 @@
 + Ctrl+Cで終了できます。
 ## Dockerあり(推奨)
 + ```docker build -t tamproto .```にてDockerイメージをビルド
-+ ```docker run -p 8433:8433 -p 8888:8888 tamproto```でコンテナを起動
++ ```docker run -p 8443:8443 -p 8888:8888 tamproto```でコンテナを起動
 + Ctrl+Cでコンテナから抜けたのち、```docker stop```でコンテナを停止させてください
 
 # APIエンドポイント
@@ -28,6 +28,5 @@
 # TODOリスト
 - TAMのTA管理UI
 - TAMの実機能の実装
-- 鍵管理UI
 - JSON Schema対応
 - TEEP Messageテスト機能
