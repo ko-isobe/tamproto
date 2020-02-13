@@ -20,12 +20,16 @@ var initMessage = function () {
     return queryRequest;
 }
 
-var parseQueryResponse = function (obj) {
+var parseQueryResponse = function (obj, req) {
     console.log("*" + arguments.callee.name);
     //verify token(TBF)
     console.log(obj.TOKEN);
     //record information(TBF)
     console.log(obj.TA_LIST);
+    //is delete api?
+    let deleteFlg = req.path.includes("delete");
+    //console.log(deleteFlg);
+
     //judge?
     let installed = false;
     obj.TA_LIST.forEach(element => {
@@ -34,25 +38,35 @@ var parseQueryResponse = function (obj) {
         }
     });
 
-    if (installed) {
-        //build TA delete message
-        let trustedAppDelete = new Object();
-        trustedAppDelete.TYPE = 4; // TYPE = 4 corresponds to a TrustedAppDelete message sent from the TAM to the TEEP Agent. 
-        trustedAppDelete.TOKEN = '2';
-        trustedAppDelete.TA_LIST = [];
-        trustedAppDelete.TA_LIST[0] = trustedAppUUID;
-        return trustedAppDelete;
+    if (deleteFlg) {
+        // already installed TA?
+        if (installed) {
+            //build TA delete message
+            let trustedAppDelete = new Object();
+            trustedAppDelete.TYPE = 4; // TYPE = 4 corresponds to a TrustedAppDelete message sent from the TAM to the TEEP Agent. 
+            trustedAppDelete.TOKEN = '2';
+            trustedAppDelete.TA_LIST = [];
+            trustedAppDelete.TA_LIST[0] = trustedAppUUID;
+            return trustedAppDelete;
+        } else {
+            //nothing to do
+            return null;
+        }
     } else {
-        console.log(app);
-        //build TA install message
-        let trustedAppInstall = new Object();
-        trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
-        trustedAppInstall.TOKEN = '2'; // 
-        trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-        trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
-        return trustedAppInstall;
+        // already installed TA?
+        if (installed) {
+            //nothing to do
+            return null;
+        } else {
+            //build TA install message
+            let trustedAppInstall = new Object();
+            trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
+            trustedAppInstall.TOKEN = '2'; // 
+            trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
+            trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
+            return trustedAppInstall;
+        }
     }
-
 }
 
 var parseSuccessMessage = function (obj) {
@@ -65,7 +79,7 @@ var parseSuccessMessage = function (obj) {
     return;
 }
 
-var parse = function (obj) {
+var parse = function (obj, req) {
     console.log("TEEP-Protocol:parse");
     let ret = null;
     //check TEEP Protocol message
@@ -76,7 +90,7 @@ var parse = function (obj) {
 
     switch (obj.TYPE) {
         case 2: //queryResponse
-            ret = parseQueryResponse(obj);
+            ret = parseQueryResponse(obj, req);
             break;
         case 5:
             // Success
