@@ -7,4 +7,4 @@ services:
             - "8888:8888"
             - "8443:8443"
         extra_hosts: 
-            - "tam_srv_ip:192.168.2.118"
+            - "tam_srv_ip:192.168.11.4"
