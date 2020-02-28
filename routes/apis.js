@@ -324,7 +324,7 @@ router.post('/tam_jose2', function (req, res, next) {
          console.log(x);
          console.log(x.payload.toString());
          let temp = JSON.parse(x.payload);
-         return jose.JWE.createDecrypt(keystore).decrypt(jwk_tam_privkey);
+         return jose.JWE.createDecrypt(jwk_tam_privkey).decrypt(temp);
       });
    }
 
