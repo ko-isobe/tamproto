@@ -1,0 +1,8 @@
+{
+  "key": {
+    "TAM_priv": "test-jw_tee_identity_private_tee-mytee-private.jwk",
+    "TAM_pub": "RootCA_crt.pem",
+    "TEE_priv": "RootCA_crt.pem",
+    "TEE_pub": "RootCA_crt.pem"
+  }
+}

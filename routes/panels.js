@@ -22,6 +22,10 @@ var keystorage = multer.diskStorage({
 var upload = multer({ storage: storage });
 var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
+var nconf = require('nconf');
+nconf.use('file',{file:'./config.json'});
+nconf.load();
+//console.log(nconf);
 
 let keyStore = jose.JWK.createKeyStore();
 
@@ -112,6 +116,24 @@ router.get('/key_delete', function (req, res) {
         console.log("deleted Key:" + delKeyName);
     }
 
+    res.locals.fullURL = req.protocol + '://' + req.get('host');
+    fs.readdir('./key', { withFileTypes: true }, function (err, files) {
+        if (err) throw err;
+        fileList = files;
+        console.log(fileList);
+        res.locals.files = fileList;
+        res.render("./keymanage.ejs");
+    });
+});
+
+router.post('/key_config',function(req,res){
+    nconf.set('key:TAM_priv',req.body.tam_priv);
+    nconf.set('key:TAM_pub',req.body.tam_pub);
+    nconf.set('key:TEE_priv',req.body.tee_priv);
+    nconf.set('key:TEE_pub',req.body.tee_pub);
+    console.log(nconf.get('key'));
+    nconf.save();
+    console.log("==");
     res.locals.fullURL = req.protocol + '://' + req.get('host');
     fs.readdir('./key', { withFileTypes: true }, function (err, files) {
         if (err) throw err;

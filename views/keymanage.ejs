@@ -60,6 +60,55 @@
             <button type="submit">Upload</button>
         </form>
     </div>
+    <h2>Key Configuration</h2>
+    <div>
+        <form action="<%= fullURL+'/panel/'%>key_config" method="POST">
+            <table>
+                <tr>
+                    <td>TAM Private Key</td>
+                    <td>
+                        <select name="tam_priv" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>"><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>TAM Public Key</td>
+                    <td>
+                        <select name="tam_pub" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>"><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>TEE Private Key</td>
+                    <td>
+                        <select name="tee_priv" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>"><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>TEE Public Key</td>
+                    <td>
+                        <select name="tee_pub" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>"><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+            <br>
+            <input type="submit" value="Save" />
+        </form>
+    </div>
 </body>
 
 </html>
