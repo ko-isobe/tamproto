@@ -4,21 +4,24 @@ var router = express.Router();
 var teepP = require("../teep-p");
 var jose = require('node-jose');
 var fs = require('fs');
+var nconf = require('nconf');
+nconf.use('file', { file: './config.json' });
+nconf.load();
 
 var keystore = jose.JWK.createKeyStore();
-var tee_pubkey = fs.readFileSync("./key/test-jw_tee_identity_tee-mytee-public.jwk", function (err, data) {
+var tee_pubkey = fs.readFileSync("./key/" + nconf.get('key:TEE_pub'), function (err, data) {
    console.log(data);
 });
 
-var tam_pubkey = fs.readFileSync("./key/test-jw_tsm_identity_tam-mytam-public.jwk", function (err, data) {
+var tam_pubkey = fs.readFileSync("./key/" + nconf.get('key:TAM_pub'), function (err, data) {
    console.log(data);
 });
 
-var tam_privkey = fs.readFileSync("./key/test-jw_tsm_identity_private_tam-mytam-private.jwk", function (err, data) {
+var tam_privkey = fs.readFileSync("./key/"+nconf.get('key:TAM_priv'), function (err, data) {
    console.log(data);
 });
 
-var tee_privkey = fs.readFileSync("./key/test-jw_tee_identity_private_tee-mytee-private.jwk", function (err, data) {
+var tee_privkey = fs.readFileSync("./key/"+nconf.get('key:TEE_priv'), function (err, data) {
    console.log(data);
 });
 
@@ -567,7 +570,7 @@ let signAndEncrypt = function (data) {
 router.get('/testgen', function (req, res) {
    //sign and encrypt by TEEP agent key
    //QueryResponse
-   let sampleRequest = { "TYPE": 5, "TOKEN": "1", "TA_LIST": [{ "Vendor_ID": "ietf-teep-wg" }] };
+   let sampleRequest = { "TYPE": 2, "TOKEN": "1", "TA_LIST": [{ "Vendor_ID": "ietf-teep-wg" }] };
 
    //signAndEncrypt(sampleRequest);
    signAndEncrypt(sampleRequest).then((val) => {
