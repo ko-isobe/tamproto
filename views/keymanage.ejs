@@ -69,7 +69,7 @@
                     <td>
                         <select name="tam_priv" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>"><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAMpriv){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>
@@ -79,7 +79,7 @@
                     <td>
                         <select name="tam_pub" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>"><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAMpub){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>
@@ -89,7 +89,7 @@
                     <td>
                         <select name="tee_priv" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>"><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TEEpriv){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>
@@ -99,7 +99,7 @@
                     <td>
                         <select name="tee_pub" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>"><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TEEpub){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>
