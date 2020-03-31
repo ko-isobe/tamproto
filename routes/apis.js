@@ -178,7 +178,7 @@ router.post('/tam_delete', function (req, res, next) {
 });
 
 //with encrypt
-router.post('/tam_jose', function (req, res, next) {
+router.post('/tam_jose_s_e', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body); // encrypted body
@@ -289,7 +289,7 @@ router.post('/tam_jose', function (req, res, next) {
 });
 
 //with encrypt2(enc-then-sign)
-router.post('/tam_jose2', function (req, res, next) {
+router.post('/tam_jose', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body); // encrypted body
@@ -376,7 +376,7 @@ router.post('/tam_jose2', function (req, res, next) {
 });
 
 //with encrypt
-router.post('/tam_jose_delete', function (req, res, next) {
+router.post('/tam_jose_s_e_delete', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body); // encrypted body
@@ -487,7 +487,7 @@ router.post('/tam_jose_delete', function (req, res, next) {
 });
 
 //with encrypt2(enc-then-sign) delete
-router.post('/tam_jose2_delete', function (req, res, next) {
+router.post('/tam_jose_delete', function (req, res, next) {
    // check POST content
    console.log(req.headers);
    console.log(req.body); // encrypted body
