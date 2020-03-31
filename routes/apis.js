@@ -701,4 +701,29 @@ router.get('/testgen', function (req, res) {
       res.end();
    });
 });
+
+router.get('/testgen_cbor', function (req, res) {
+   //sign and encrypt by TEEP agent key
+   //QueryRequest
+   let sampleRequest = { 'TYPE': 1, 'TOKEN': '1', 'REQUEST': [2] };
+   //let values = Object.values(sampleRequest);
+   //cbor.Map
+   let cborRequest = new cbor.Map();
+   cborRequest.set('TYPE',1);
+   let buf = new ArrayBuffer(1);
+   let dv = new DataView(buf);
+   dv.setUint8(0,3);
+   cborRequest.set('TOKEN',buf);
+   cborRequest.set('REQUEST',[2]);
+   
+   let encoded = cbor.encode(cborRequest);
+   //signAndEncrypt(sampleRequest);
+   signAndEncrypt(sampleRequest).then((val) => {
+      res.status(200);
+      console.log(cborRequest);
+      res.send(encoded);
+      res.end();
+   });
+});
+
 module.exports = router;
