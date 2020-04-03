@@ -591,28 +591,38 @@ router.post('/tam_cbor', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   try {
-      parsedCbor = cbor.decodeFirstSync(req.body);
-   } catch (e) {
-      console.log("Cbor parse error:" + e);
-      res.status(400);
-      res.end();
-      return;
+   if (req.headers['content-length'] != 0) {
+      try {
+         parsedCbor = cbor.decodeFirstSync(req.body);
+      } catch (e) {
+         console.log("Cbor parse error:" + e);
+         res.status(400);
+         res.end();
+         return;
+      }
+      console.log(parsedCbor);
    }
-   
-   console.log(parsedCbor);
-
-   //reconstruct TOKEN field(workaround, To Be Fix!)
+   //reconstruct TOKEN field?(workaround, To Be Fix!)
    //parsedCbor.TOKEN = "hoge";
-   ret = teepImplHandler(req, parsedCbor);
 
+   ret = teepImplHandler(req, parsedCbor);
    if (ret == null) {
       res.set(null);
       res.status(204);
       res.end();
    } else {
       //res.set(ret);
-      res.send(JSON.stringify(ret));
+      //TOKEN: string => bstr
+      let buf = new ArrayBuffer(ret.TOKEN);
+      let dv = new DataView(buf);
+      dv.setUint8(0, 3);
+      ret.TOKEN = buf;
+
+      let cborResponse = new cbor.Map();
+      Object.keys(ret).forEach(function (key) {
+         cborResponse.set(key, ret[key]);
+      });
+      res.send(cbor.encode(cborResponse));
       res.end();
    }
 
