@@ -605,7 +605,7 @@ router.post('/tam_cbor', function (req, res, next) {
    //reconstruct TOKEN field?(workaround, To Be Fix!)
    //parsedCbor.TOKEN = "hoge";
 
-   ret = teepImplHandler(req, parsedCbor);
+   ret = teepImplHandler(req, parsedCbor.get(2));
    if (ret == null) {
       res.set(null);
       res.status(204);
@@ -622,7 +622,11 @@ router.post('/tam_cbor', function (req, res, next) {
       Object.keys(ret).forEach(function (key) {
          cborResponse.set(key, ret[key]);
       });
-      res.send(cbor.encode(cborResponse));
+      //outer_wrapper
+      let outerWrapper = new cbor.Map();
+      outerWrapper.set(1, null); //nil
+      outerWrapper.set(2, cborResponse);
+      res.send(cbor.encode(outerWrapper));
       res.end();
    }
 
@@ -729,7 +733,7 @@ router.get('/testgen', function (req, res) {
 router.get('/testgen_cbor', function (req, res) {
    //sign and encrypt by TEEP agent key
    //QueryRequest
-   let sampleRequest = null; //{ 'TYPE': 2, 'TOKEN': '1', 'TA_LIST': "hoge" };
+   //let sampleRequest = null; //{ 'TYPE': 2, 'TOKEN': '1', 'TA_LIST': "hoge" };
    //let values = Object.values(sampleRequest);
    //cbor.Map
    let cborRequest = new cbor.Map();
@@ -742,12 +746,19 @@ router.get('/testgen_cbor', function (req, res) {
 
    let encoded = cbor.encode(cborRequest);
    //signAndEncrypt(sampleRequest);
-   signAndEncrypt(sampleRequest).then((val) => {
-      res.status(200);
-      console.log(cborRequest);
-      res.send(encoded);
-      res.end();
-   });
+
+   //outer_wrapper
+   let outerWrapper = new cbor.Map();
+   outerWrapper.set(1, null); //nil
+   outerWrapper.set(2, cborRequest);
+   res.send(cbor.encode(outerWrapper));
+   res.end();
+   // signAndEncrypt(sampleRequest).then((val) => {
+   //    res.status(200);
+   //    console.log(cborRequest);
+   //    res.send(encoded);
+   //    res.end();
+   // });
 });
 
 module.exports = router;
