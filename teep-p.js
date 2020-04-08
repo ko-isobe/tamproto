@@ -32,11 +32,11 @@ var parseQueryResponse = function (obj, req) {
 
     //judge?
     let installed = false;
-    obj.TA_LIST.forEach(element => {
-        if (!installed) {
-            installed = (element.Class_ID === trustedAppUUID);
-        }
-    });
+    if (Array.isArray(obj.TA_LIST)){
+        obj.TA_LIST.filter(x =>{
+            installed = (x === trustedAppUUID);
+        });
+    }
 
     if (deleteFlg) {
         // already installed TA?
