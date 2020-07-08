@@ -19,8 +19,8 @@ var initMessage = function () {
     //generate queryRequest
     var queryRequest = new Object();
     queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-    queryRequest.TOKEN = '1'; // The value in the TOKEN field is used to match requests to responses.
-    queryRequest.REQUEST = [2]; // request Trusted Apps lists for device
+    queryRequest.TOKEN = 12345; // The value in the TOKEN field is used to match requests to responses.
+    queryRequest.REQUEST = 0b0010; // request Trusted Apps lists for device
 
     return queryRequest;
 }

@@ -210,39 +210,42 @@ router.post('/tam_cbor', function (req, res, next) {
          return;
       }
       console.log(parsedCbor);
+      ret = teepImplHandler(req, parsedCbor.get(2));
+   }else{
+      //Initialize TEEP-P
+      ret = teepImplHandler(req,req.body);
    }
-   //reconstruct TOKEN field?(workaround, To Be Fix!)
-   //parsedCbor.TOKEN = "hoge";
 
-   ret = teepImplHandler(req, parsedCbor.get(2));
    if (ret == null) {
       res.set(null);
       res.status(204);
       res.end();
    } else {
-      //res.set(ret);
-      //TOKEN: string => bstr
-      let buf = new ArrayBuffer(ret.TOKEN);
-      let dv = new DataView(buf);
-      dv.setUint8(0, 3);
-      ret.TOKEN = buf;
+      console.log(ret);
+      // let dv = new DataView(buf);
+      // dv.setUint8(0, 3);
+      // ret.TOKEN = buf;
 
-      let cborResponse = new cbor.Map();
-      Object.keys(ret).forEach(function (key) {
-         cborResponse.set(key, ret[key]);
-      });
-      //outer_wrapper
-      let outerWrapper = new cbor.Map();
-      outerWrapper.set(1, null); //nil
-      outerWrapper.set(2, cborResponse);
-      res.send(cbor.encode(outerWrapper));
+      // let cborResponse = new cbor.Map();
+      // Object.keys(ret).forEach(function (key) {
+      //    cborResponse.set(key, ret[key]);
+      // });
+      // //outer_wrapper
+      // let outerWrapper = new cbor.Map();
+      // outerWrapper.set(1, null); //nil
+      // outerWrapper.set(2, cborResponse);
+      // res.send(cbor.encode(outerWrapper));
+
+      //let cborResponse = [1,12345,new cbor.Map(),0b0010]
+      let cborResponse = [ret.TYPE,ret.TOKEN,new cbor.Map(),ret.REQUEST];
+      res.send(cbor.encode(cborResponse));
       res.end();
    }
 
    return;
 });
 
-//COSE (with sign)　[To be modified]
+//COSE (with sign)　@TODO
 router.post('/tam_cose', function (req, res, next) {
    // // check POST content
    // console.log("Access from: " + req.ip);
