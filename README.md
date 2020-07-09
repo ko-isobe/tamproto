@@ -6,14 +6,15 @@
 ### without Docker
 + At first, install necessary npm packages, run ```npm install```.
 + To run tamproto, type ```node app.js ``` and execute.
-+ To stop the tamproto, press Ctrl+C.
++ To stop the tamproto, press <kbd>Ctrl</kbd>+<kbd>C</kbd>.
 ### with Docker (Recommended)
 + Build docker image by ```docker build -t tamproto .```
 + To run the container, run ```docker run -p 8443:8443 -p 8888:8888 tamproto```
-+ To stop the tamproto, escape from the container by pressing Ctrl+C, and then type ``docker stop``` for stopping the container.
++ To stop the tamproto, escape from the container by pressing <kbd>Ctrl</kbd>+<kbd>C</kbd>, and then type ``docker stop``` for stopping the container.
 
 ## API Endpoint
-- tamproto has the API endpoint in ```http://<Machine HostIP>:8888/api/tam```
+- tamproto has the API endpoint in ~~```http://<Machine HostIP>:8888/api/tam```~~  
+```http://<Machine HostIP>:8888/api/tam_cbor```
 - This endpoint accepts by HTTP POST method.
 - tamproto exposes port 8888 (HTTP) and 8433 (HTTPS)
 - Keys and certificates for TLS are stored in ``key`` directory.

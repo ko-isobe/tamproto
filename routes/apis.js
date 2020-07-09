@@ -64,7 +64,7 @@ let teepImplHandler = function (req, body) {
       return ret;
    } else {
       console.log("TAM ProcessTEEP-Pmessage instance");
-      console.log(body);
+      //console.log(body);
 
       ret = teepP.parse(body, req);
       console.log("TAM ProcessTEEP-Pmessage response");
@@ -211,9 +211,9 @@ router.post('/tam_cbor', function (req, res, next) {
       }
       console.log(teepP.parseCborArray(parsedCbor));
       ret = teepImplHandler(req, teepP.parseCborArray(parsedCbor));
-   }else{
+   } else {
       //Initialize TEEP-P
-      ret = teepImplHandler(req,req.body);
+      ret = teepImplHandler(req, req.body);
    }
 
    if (ret == null) {

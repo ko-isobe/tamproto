@@ -10,7 +10,7 @@ const cbor = require('cbor');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 //ref. draft-ietf-teep-protocol-02#section-5
-const CBORLabels = ['cipher-suites','nonce','version','ocsp-data','selected-cipher-suite','selected-version','eat','ta-list','ext-list','manifest-list','msg','err-msg'];
+const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite', 'selected-version', 'eat', 'ta-list', 'ext-list', 'manifest-list', 'msg', 'err-msg'];
 
 var init = function () {
     console.log("called TEEP-P init");
@@ -24,7 +24,7 @@ var initMessage = function () {
     var queryRequest = new Object();
     queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
     queryRequest.TOKEN = 12345; // The value in the TOKEN field is used to match requests to responses.
-    queryRequest.REQUEST = 0b0010; // request Trusted Apps lists for device
+    queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
 
     return queryRequest;
 }
@@ -35,7 +35,7 @@ var parseQueryResponse = function (obj, req) {
     console.log(obj.TOKEN);
     //record information(TBF)
     console.log(obj.TA_LIST);
-    //is delete api? <= !! this is not mentioned in current Drafts.
+    //is delete api? <= !! this is not mentioned in Drafts.
     let deleteFlg = req.path.includes("delete");
     //console.log(deleteFlg);
 
@@ -83,7 +83,7 @@ var parseSuccessMessage = function (obj) {
     //verify token(TBF)
     console.log(obj.TOKEN);
     //record information(TBF)
-    console.log(obj.MSG);
+    console.log(obj.msg);
 
     return;
 }
@@ -130,7 +130,7 @@ var buildCborArray = function (obj) {
             break;
         case 3: // TrustedAppInstall
             let TAInstallOption = new cbor.Map();
-            TAInstallOption.set(10,obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
+            TAInstallOption.set(10, obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
             cborArray.push(TAInstallOption);
             break;
         case 4: // TrustedAppDelete
@@ -139,23 +139,40 @@ var buildCborArray = function (obj) {
     return cborArray;
 }
 
-var parseCborArrayHelper = function(arr){
+var parseCborArrayHelper = function (arr) {
     //request cbor-ordered Array => request Obj
     //common order: 1->type 2->token
     let requestObj = new Object();
     requestObj.TYPE = arr[0];
     requestObj.TOKEN = arr[1];
-    switch(arr[0]){
+
+    //TODO: validate arr elements
+    switch (arr[0]) {
         case 2: // QueryResponse
             //arr[2] as a Map
             //handle option's Map
-            arr[2].forEach(function(val,key,map){
-                requestObj[CBORLabels[key]] = val;
+            arr[2].forEach(function (val, key, map) {
+                requestObj[CBORLabels[key - 1]] = val;
             });
+            if (requestObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
+                requestObj[CBORLabels[6]] = requestObj[CBORLabels[6]].toString('hex');
+            }
+            if (requestObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(requestObj[CBORLabels[7]])) { // ta-list Buffer=>String
+                requestObj[CBORLabels[7]] = requestObj[CBORLabels[7]].map(function (val) {
+                    return val.toString('hex');
+                });
+                requestObj.TA_LIST = requestObj[CBORLabels[7]];
+            }
             break;
-        case 5: // OK
+        case 5: // Success
+            if (arr.length == 3) {
+                arr[2].forEach(function (val, key, map) {
+                    requestObj[CBORLabels[key - 1]] = val;
+                });
+            }
             break;
-        case 6: // NG
+        case 6: // Error
+            requestObj.ERROR_CODE = arr[2];
             break;
     }
     return requestObj;
