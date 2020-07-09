@@ -6,7 +6,11 @@
 //var textenc = require('text-encoding');
 const ip = require('ip');
 const app = require('./app');
+const cbor = require('cbor');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
+
+//ref. draft-ietf-teep-protocol-02#section-5
+const CBORLabels = ['cipher-suites','nonce','version','ocsp-data','selected-cipher-suite','selected-version','eat','ta-list','ext-list','manifest-list','msg','err-msg'];
 
 var init = function () {
     console.log("called TEEP-P init");
@@ -31,14 +35,14 @@ var parseQueryResponse = function (obj, req) {
     console.log(obj.TOKEN);
     //record information(TBF)
     console.log(obj.TA_LIST);
-    //is delete api?
+    //is delete api? <= !! this is not mentioned in current Drafts.
     let deleteFlg = req.path.includes("delete");
     //console.log(deleteFlg);
 
     //judge?
     let installed = false;
-    if (Array.isArray(obj.TA_LIST)){
-        obj.TA_LIST.filter(x =>{
+    if (Array.isArray(obj.TA_LIST)) {
+        obj.TA_LIST.filter(x => {
             installed = (x === trustedAppUUID);
         });
     }
@@ -66,7 +70,7 @@ var parseQueryResponse = function (obj, req) {
             //build TA install message
             let trustedAppInstall = new Object();
             trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
-            trustedAppInstall.TOKEN = '2'; // 
+            trustedAppInstall.TOKEN = 23456; // 
             trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
             trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
             return trustedAppInstall;
@@ -113,10 +117,55 @@ var parse = function (obj, req) {
     return ret;
 }
 
+var buildCborArray = function (obj) {
+    //responseObj => cbor-ordered Array
+    //common order: 1->type 2->token
+    let cborArray = [obj.TYPE, obj.TOKEN];
+    switch (obj.TYPE) {
+        case 1: // QueryRequest
+            if (obj.hasOwnProperty('OPTIONS')) { // Option is Option*
+                cborArray.push(obj.Options);
+            }
+            cborArray.push(obj.REQUEST); // mandatory
+            break;
+        case 3: // TrustedAppInstall
+            let TAInstallOption = new cbor.Map();
+            TAInstallOption.set(10,obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
+            cborArray.push(TAInstallOption);
+            break;
+        case 4: // TrustedAppDelete
+            break;
+    }
+    return cborArray;
+}
+
+var parseCborArrayHelper = function(arr){
+    //request cbor-ordered Array => request Obj
+    //common order: 1->type 2->token
+    let requestObj = new Object();
+    requestObj.TYPE = arr[0];
+    requestObj.TOKEN = arr[1];
+    switch(arr[0]){
+        case 2: // QueryResponse
+            //arr[2] as a Map
+            //handle option's Map
+            arr[2].forEach(function(val,key,map){
+                requestObj[CBORLabels[key]] = val;
+            });
+            break;
+        case 5: // OK
+            break;
+        case 6: // NG
+            break;
+    }
+    return requestObj;
+}
 var teepp = new Object();
 teepp.init = init;
 teepp.initMessage = initMessage;
 teepp.parse = parse;
+teepp.buildCborArray = buildCborArray;
+teepp.parseCborArray = parseCborArrayHelper;
 //teepp.queryRequest = queryRequest;
 
 module.exports = teepp;
