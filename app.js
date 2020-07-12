@@ -33,6 +33,10 @@ app.use(bodyParser.raw({
     type: 'application/*+cbor',
     limit: '1mb'
 }));
+app.use(bodyParser.raw({
+    type: 'application/*+cose',
+    limit: '1mb'
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');

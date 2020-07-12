@@ -9,6 +9,7 @@ var router = express.Router();
 var teepP = require("../teep-p");
 var jose = require('node-jose');
 var cbor = require('cbor');
+var cose = require('cose-js');
 var fs = require('fs');
 var nconf = require('nconf');
 nconf.use('file', { file: './config.json' });
@@ -43,6 +44,7 @@ keystore.add(tee_privkey, "json").then(function (result) {
    jwk_tee_privkey = result;
 });
 keystore.add(tam_pubkey, "json").then(function (result) {
+   console.log(result);
    jwk_tam_pubkey = result;
 });
 
@@ -233,60 +235,78 @@ router.post('/tam_cbor', function (req, res, next) {
 
 //COSE (with sign)　@TODO
 router.post('/tam_cose', function (req, res, next) {
-   // // check POST content
-   // console.log("Access from: " + req.ip);
-   // console.log(req.headers);
-   // console.log(req.body);
-   // let ret = null;
-   // let parsedCbor = null;
+   // check POST content
+   console.log("Access from: " + req.ip);
+   console.log(req.headers);
+   console.log(req.body);
+   let ret = null;
+   let parsedCbor = null;
 
-   // //set response header
-   // res.set({
-   //    'Content-Type': 'application/teep+cbor',
-   //    'Cache-Control': 'no-store',
-   //    'X-Content-Type-Options': 'nosniff',
-   //    'Content-Security-Policy': "default-src 'none'",
-   //    'Referrer-Policy': 'no-referrer'
-   // });
+   //set response header
+   res.set({
+      'Content-Type': 'application/teep+cose',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'",
+      'Referrer-Policy': 'no-referrer'
+   });
 
-   // if (req.headers['content-length'] != 0) {
-   //    try {
-   //       parsedCbor = cbor.decodeFirstSync(req.body);
-   //    } catch (e) {
-   //       console.log("Cbor parse error:" + e);
-   //       res.status(400);
-   //       res.end();
-   //       return;
-   //    }
-   //    console.log(parsedCbor);
-   // }
-   // //reconstruct TOKEN field?(workaround, To Be Fix!)
-   // //parsedCbor.TOKEN = "hoge";
+   if (req.headers['content-length'] != 0) {
+      try {
+         // verify
+         let verifyKey = {
+            'key':{
+               'x': Buffer.from('WIbNYd2HWGLlqqgg56FSdMloqbyWBI3crOMvUMNlG6M','base64'),
+               'y': Buffer.from('nu2BJekyzWDA6tNlDQpIXPcm03jRsBbtQpiylh4ljxs','base64')
+            }
+         };
+         console.log(typeof req.body);
+         let message = Buffer.from(req.body);
+         console.log(typeof message);
+         cose.sign.verify(req.body,verifyKey).then((buf)=>{
+            console.log(buf.toString('utf8'));
+         });
+         //parsedCbor = cbor.decodeFirstSync(req.body);
+      } catch (e) {
+         console.log("Cbor parse error:" + e);
+         res.status(400);
+         res.end();
+         return;
+      }
+      console.log(teepP.parseCborArray(parsedCbor));
+      ret = teepImplHandler(req, teepP.parseCborArray(parsedCbor));
+   } else {
+      //Initialize TEEP-P
+      ret = teepImplHandler(req, req.body);
+   }
 
-   // ret = teepImplHandler(req, parsedCbor.get(2));
-   // if (ret == null) {
-   //    res.set(null);
-   //    res.status(204);
-   //    res.end();
-   // } else {
-   //    //res.set(ret);
-   //    //TOKEN: string => bstr
-   //    let buf = new ArrayBuffer(ret.TOKEN);
-   //    let dv = new DataView(buf);
-   //    dv.setUint8(0, 3);
-   //    ret.TOKEN = buf;
-
-   //    let cborResponse = new cbor.Map();
-   //    Object.keys(ret).forEach(function (key) {
-   //       cborResponse.set(key, ret[key]);
-   //    });
-   //    //outer_wrapper
-   //    let outerWrapper = new cbor.Map();
-   //    outerWrapper.set(1, null); //nil
-   //    outerWrapper.set(2, cborResponse);
-   //    res.send(cbor.encode(outerWrapper));
-   //    res.end();
-   // }
+   if (ret == null) {
+      res.set(null);
+      res.status(204);
+      res.end();
+   } else {
+      //console.log(ret);
+      let cborResponseArray = teepP.buildCborArray(ret);
+      console.log(cborResponseArray);
+      let plainPayload = cbor.encode(cborResponseArray);
+      let headers = {
+         'p': {'alg':'ES256'},
+         'u': {'kid': ''}
+      };
+      let signer = {
+         'key':{
+            'd':Buffer.from('YP5t1thdV0ClNJtvkSZ-6sW6gbjLU-4knktOsQLEdrM','base64') // TAM Priv Key
+         }
+      };
+      cose.sign.create(headers,plainPayload,signer).then((buf)=>{
+         console.log(buf.toString('hex'));
+         res.send(buf);
+         res.end();
+         return;
+      });
+      //res.send(cbor.encode(cborResponseArray));
+      //res.end();
+   }
 
    return;
 });
