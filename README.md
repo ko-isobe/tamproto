@@ -13,17 +13,21 @@
 + To stop the tamproto, escape from the container by pressing Ctrl+C, and then type ``docker stop`` for stopping the container.
 
 ## API Endpoint
-- tamproto has the API endpoint in ``http://<Machine HostIP>:8888/api/tam``
-- This endpoint accepts by HTTP POST method.
+- tamproto has the API endpoints in   
+``http://<Machine HostIP>:8888/api/tam`` (JSON)  
+``http://<Machine HostIP>:8888/api/tam_cbor`` (CBOR)  
+``http://<Machine HostIP>:8888/api/tam_cose`` (COSE)  
+- These endpoints accept by HTTP POST method.
 - tamproto exposes port 8888 (HTTP) and 8433 (HTTPS)
 - Keys and certificates for TLS are stored in ``key`` directory.
+- I'll add sample script/data for calling APIs soon.
 
 ## Implementation Structure
 - tamproto uses [Express](https://expressjs.com/) framework.
 - The above API is implemented in ``routes/apis.js``.
 
 ## License
-``
+```
 Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -45,4 +49,4 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-``
+```
