@@ -2,7 +2,7 @@
   "key": {
     "TAM_priv": "test-jw_tsm_identity_private_tam-mytam-private.jwk",
     "TAM_pub": "test-jw_tsm_identity_tam-mytam-public.jwk",
-    "TEE_priv": "test-jw_tee_identity_private_tee-mytee-private.jwk",
-    "TEE_pub": "test-jw_tee_identity_tee-mytee-public.jwk"
+    "TEE_priv": "teep.jwk",
+    "TEE_pub": "teep.jwk"
   }
 }
