@@ -7,7 +7,9 @@
 const ip = require('ip');
 const app = require('./app');
 const cbor = require('cbor');
+const fs = require('fs');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
+const sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
 
 //ref. draft-ietf-teep-protocol-02#section-5
 const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite', 'selected-version', 'eat', 'ta-list', 'ext-list', 'manifest-list', 'msg', 'err-msg'];
@@ -72,7 +74,10 @@ var parseQueryResponse = function (obj, req) {
             trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
             trustedAppInstall.TOKEN = 23456; // 
             trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-            trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
+            //trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
+            //embedding static SUIT CBOR content
+            trustedAppInstall.MANIFEST_LIST.push(sampleSuitContents);
+            console.log(typeof trustedAppInstall.MANIFEST_LIST[0]);
             return trustedAppInstall;
         }
     }

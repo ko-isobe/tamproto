@@ -1,6 +1,6 @@
 # tamproto
-- This is [IETF TEEP](https://github.com/ietf-teep) prototype implementation.
-- tamproto provides TAM server functions. Not covering device side (e.g TrustZone, SGX)
+- This is an [IETF TEEP](https://github.com/ietf-teep) prototype implementation.
+- tamproto provides TAM server functions. Not covering device side (e.g TEEP Broker, TEEP Agent)
 
 ## Launch
 ### without Docker
@@ -23,7 +23,7 @@
 - The above API is implemented in ``routes/apis.js``.
 
 ## License
-
+``
 Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -45,3 +45,4 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+``
