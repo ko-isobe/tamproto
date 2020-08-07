@@ -47,7 +47,7 @@ app.use('/key', express.static('key'));
 const setServIP = () => {
     return new Promise((resolve, reject) => {
         let ipAddress = null;
-        dns.lookup('tam_srv_ip', (err, address, family) => {
+        dns.lookup('tamproto_tam_api_1', (err, address, family) => {
             if (typeof address === "undefined") {
                 ipAddress = ip.address();
             } else {
