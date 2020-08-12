@@ -12,3 +12,8 @@ run: $(NPM_INSTALLS) $(TA_BIN)
 .PHONY: clean
 clean:
 	rm -fr $(NPM_INSTALLS)
+
+.PHONY: push-docker
+push-docker:
+	docker build -t trasioteam/tamproto:teep-device-interop .
+	docker push trasioteam/tamproto:teep-device-interop
