@@ -18,11 +18,11 @@ var tam_pubkey = fs.readFileSync("./key/" + nconf.get('key:TAM_pub'), function (
    console.log(data);
 });
 
-var tam_privkey = fs.readFileSync("./key/"+nconf.get('key:TAM_priv'), function (err, data) {
+var tam_privkey = fs.readFileSync("./key/" + nconf.get('key:TAM_priv'), function (err, data) {
    console.log(data);
 });
 
-var tee_privkey = fs.readFileSync("./key/"+nconf.get('key:TEE_priv'), function (err, data) {
+var tee_privkey = fs.readFileSync("./key/" + nconf.get('key:TEE_priv'), function (err, data) {
    console.log(data);
 });
 
@@ -61,7 +61,7 @@ let teepImplHandler = function (req, body) {
       console.log("TAM ProcessTEEP-Pmessage instance");
       console.log(body);
 
-      ret = teepP.parse(body,req);
+      ret = teepP.parse(body, req);
       console.log("TAM ProcessTEEP-Pmessage response");
       console.log(ret);
       //
@@ -87,7 +87,7 @@ let teepImplHandler = function (req, body) {
 // no encrypt
 router.post('/tam', function (req, res, next) {
    // check POST content
-   console.log("Access from: "+req.ip);
+   console.log("Access from: " + req.ip);
    console.log(req.headers);
    console.log(req.body);
    let ret = null;
@@ -574,31 +574,59 @@ router.post('/tam_jose_delete', function (req, res, next) {
 });
 
 //CBOR (no encrypt and sign)
-router.post('/tam_cbor',function(req,res,next){
+router.post('/tam_cbor', function (req, res, next) {
    // check POST content
-   console.log("Access from: "+req.ip);
+   console.log("Access from: " + req.ip);
    console.log(req.headers);
    console.log(req.body);
    let ret = null;
+   let parsedCbor = null;
 
    //set response header
    res.set({
-      'Content-Type': 'application/teep+json',
+      'Content-Type': 'application/teep+cbor',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
    });
 
-   ret = teepImplHandler(req, req.body);
+   if (req.headers['content-length'] != 0) {
+      try {
+         parsedCbor = cbor.decodeFirstSync(req.body);
+      } catch (e) {
+         console.log("Cbor parse error:" + e);
+         res.status(400);
+         res.end();
+         return;
+      }
+      console.log(parsedCbor);
+   }
+   //reconstruct TOKEN field?(workaround, To Be Fix!)
+   //parsedCbor.TOKEN = "hoge";
 
+   ret = teepImplHandler(req, parsedCbor.get(2));
    if (ret == null) {
       res.set(null);
       res.status(204);
       res.end();
    } else {
       //res.set(ret);
-      res.send(JSON.stringify(ret));
+      //TOKEN: string => bstr
+      let buf = new ArrayBuffer(ret.TOKEN);
+      let dv = new DataView(buf);
+      dv.setUint8(0, 3);
+      ret.TOKEN = buf;
+
+      let cborResponse = new cbor.Map();
+      Object.keys(ret).forEach(function (key) {
+         cborResponse.set(key, ret[key]);
+      });
+      //outer_wrapper
+      let outerWrapper = new cbor.Map();
+      outerWrapper.set(1, null); //nil
+      outerWrapper.set(2, cborResponse);
+      res.send(cbor.encode(outerWrapper));
       res.end();
    }
 
@@ -672,7 +700,7 @@ let signAndEncrypt = function (data) {
             console.log(result);
             console.log(typeof result);
             //signedRequest = result;
-            jose.JWE.createEncrypt({format:"flattened", fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
+            jose.JWE.createEncrypt({ format: "flattened", fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
                .update(JSON.stringify(result))
                .final().then(
                   async function (ret) {
@@ -705,25 +733,32 @@ router.get('/testgen', function (req, res) {
 router.get('/testgen_cbor', function (req, res) {
    //sign and encrypt by TEEP agent key
    //QueryRequest
-   let sampleRequest = { 'TYPE': 1, 'TOKEN': '1', 'REQUEST': [2] };
+   //let sampleRequest = null; //{ 'TYPE': 2, 'TOKEN': '1', 'TA_LIST': "hoge" };
    //let values = Object.values(sampleRequest);
    //cbor.Map
    let cborRequest = new cbor.Map();
-   cborRequest.set('TYPE',1);
+   cborRequest.set('TYPE', 2);
    let buf = new ArrayBuffer(1);
    let dv = new DataView(buf);
-   dv.setUint8(0,3);
-   cborRequest.set('TOKEN',buf);
-   cborRequest.set('REQUEST',[2]);
-   
+   dv.setUint8(0, 3);
+   cborRequest.set('TOKEN', buf);
+   cborRequest.set('TA_LIST', "hoge");
+
    let encoded = cbor.encode(cborRequest);
    //signAndEncrypt(sampleRequest);
-   signAndEncrypt(sampleRequest).then((val) => {
-      res.status(200);
-      console.log(cborRequest);
-      res.send(encoded);
-      res.end();
-   });
+
+   //outer_wrapper
+   let outerWrapper = new cbor.Map();
+   outerWrapper.set(1, null); //nil
+   outerWrapper.set(2, cborRequest);
+   res.send(cbor.encode(outerWrapper));
+   res.end();
+   // signAndEncrypt(sampleRequest).then((val) => {
+   //    res.status(200);
+   //    console.log(cborRequest);
+   //    res.send(encoded);
+   //    res.end();
+   // });
 });
 
 module.exports = router;

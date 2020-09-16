@@ -24,6 +24,10 @@ var opts = {
 app.use(logger('dev'));
 app.use(bodyParser.json({ type: 'application/*+json', inflate: false }));
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.raw({
+    type: 'application/*+cbor',
+    limit: '1mb'
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
