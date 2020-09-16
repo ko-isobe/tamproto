@@ -1,3 +1,8 @@
+/*
+* Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
+*
+* SPDX-License-Identifier: BSD-2-Clause
+*/
 //var textenc = require('text-encoding');
 const ip = require('ip');
 const app = require('./app');

@@ -1,3 +1,8 @@
+/*
+* Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
+*
+* SPDX-License-Identifier: BSD-2-Clause
+*/
 var express = require('express');
 var path = require('path');
 var logger = require('morgan');

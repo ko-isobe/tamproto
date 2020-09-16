@@ -1,3 +1,5 @@
+# Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
+# SPDX-License-Identifier: BSD-2-Clause
 FROM node:10.18-alpine
 
 WORKDIR /usr/src/app
