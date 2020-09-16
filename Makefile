@@ -15,5 +15,5 @@ clean:
 
 .PHONY: push-docker
 push-docker:
-	docker build -t trasioteam/tamproto:teep-device-interop .
-	docker push trasioteam/tamproto:teep-device-interop
+	docker build -t trasioteam/tamproto:`git describe` .
+	docker push trasioteam/tamproto:`git describe`
