@@ -50,6 +50,18 @@ keystore.add(tam_pubkey, "json").then(function (result) {
    jwk_tam_pubkey = result;
 });
 
+const checkContentType = (req, res, next) => {
+   if (req.headers['content-type'] !== "application/teep+cbor") {
+      console.log("apis.js: Inappropirate content-type request");
+      console.log(req.headers['content-type']);
+      res.set(null);
+      res.status(415).send('no content');
+      res.end();
+      return;
+   }
+   next();
+};
+
 router.get('/', function (req, res, next) {
    var param = { "key": "This is sample" };
    res.header('Content-Type', 'application/json; charset=utf-8');
@@ -256,7 +268,7 @@ router.post('/tam_delete', function (req, res, next) {
 });
 
 //CBOR (no encrypt and sign)
-router.post('/tam_cbor', function (req, res, next) {
+router.post('/tam_cbor', checkContentType ,function (req, res, next) {
    // check POST content
    console.log("Access from: " + req.ip);
    console.log(req.headers);
