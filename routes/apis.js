@@ -175,7 +175,6 @@ router.post('/tam', function (req, res, next) {
    //set response header
    res.set({
       'Content-Type': 'application/teep+json',
-      'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
@@ -236,7 +235,6 @@ router.post('/tam_delete', function (req, res, next) {
    //set response header
    res.set({
       'Content-Type': 'application/teep+json',
-      'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
@@ -269,7 +267,6 @@ router.post('/tam_cbor', function (req, res, next) {
    //set response header
    res.set({
       'Content-Type': 'application/teep+cbor',
-      'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
@@ -318,7 +315,6 @@ router.post('/tam_cose', function (req, res, next) {
    //set response header
    res.set({
       'Content-Type': 'application/teep+cose',
-      'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'none'",
       'Referrer-Policy': 'no-referrer'
