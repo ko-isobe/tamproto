@@ -14,6 +14,11 @@ const sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
 //ref. draft-ietf-teep-protocol-02#section-5
 const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite', 'selected-version', 'eat', 'ta-list', 'ext-list', 'manifest-list', 'msg', 'err-msg'];
 
+//ref. draft-ietf-teep-protocol-04#section-6
+//cipher-suites
+const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1
+const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256  = 2
+
 var init = function () {
     console.log("called TEEP-P init");
     return false;
@@ -25,7 +30,17 @@ var initMessage = function () {
     //generate queryRequest
     var queryRequest = new Object();
     queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-    queryRequest.TOKEN = 12345; // The value in the TOKEN field is used to match requests to responses.
+    queryRequest.TOKEN = 2004318071; // The value in the TOKEN field is used to match requests to responses.
+    //queryRequest.OPTIONS = null; // Option Field is mandatory? even no elements in options
+    queryRequest.OPTIONS = new Map();
+    queryRequest.OPTIONS.set(1,[TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite
+    queryRequest.OPTIONS.set(3,[0]); //version
+    let buf = new ArrayBuffer(3);
+    let dv = new DataView(buf);
+    dv.setUint8(0,01);
+    dv.setUint8(1,02);
+    dv.setUint8(2,03);
+    queryRequest.OPTIONS.set(4,buf); //ocsp-data
     queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
 
     return queryRequest;
@@ -55,7 +70,7 @@ var parseQueryResponse = function (obj, req) {
             //build TA delete message
             let trustedAppDelete = new Object();
             trustedAppDelete.TYPE = 4; // TYPE = 4 corresponds to a TrustedAppDelete message sent from the TAM to the TEEP Agent. 
-            trustedAppDelete.TOKEN = '2';
+            trustedAppDelete.TOKEN = 2004318072;
             trustedAppDelete.TA_LIST = [];
             trustedAppDelete.TA_LIST[0] = trustedAppUUID;
             return trustedAppDelete;
@@ -72,11 +87,11 @@ var parseQueryResponse = function (obj, req) {
             //build TA install message
             let trustedAppInstall = new Object();
             trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
-            trustedAppInstall.TOKEN = 23456; // 
+            trustedAppInstall.TOKEN = 2004318072; // 
             trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-            //trustedAppInstall.MANIFEST_LIST[0] = "http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta";
+            //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
             //embedding static SUIT CBOR content
-            trustedAppInstall.MANIFEST_LIST.push(sampleSuitContents);
+            //trustedAppInstall.MANIFEST_LIST.push(sampleSuitContents);
             console.log(typeof trustedAppInstall.MANIFEST_LIST[0]);
             return trustedAppInstall;
         }
@@ -128,9 +143,10 @@ var buildCborArray = function (obj) {
     let cborArray = [obj.TYPE, obj.TOKEN];
     switch (obj.TYPE) {
         case 1: // QueryRequest
-            if (obj.hasOwnProperty('OPTIONS')) { // Option is Option*
-                cborArray.push(obj.Options);
+            if(obj.OPTIONS == null){
+                obj.OPTIONS = new cbor.Map();
             }
+            cborArray.push(obj.OPTIONS); // option is mandatory field even though no elements.
             cborArray.push(obj.REQUEST); // mandatory
             break;
         case 3: // TrustedAppInstall
