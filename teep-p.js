@@ -187,9 +187,9 @@ var parseCborArrayHelper = function (arr) {
             break;
         case 5: // Success
             if (arr.length == 3) {
-                arr[2].forEach(function (val, key, map) {
-                    requestObj[CBORLabels[key - 1]] = val;
-                });
+                for (key in arr[2]) {
+                    requestObj[CBORLabels[key - 1]] = arr[2][key];
+                }
             }
             break;
         case 6: // Error
