@@ -11,12 +11,15 @@ const fs = require('fs');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 //ref. draft-ietf-teep-protocol-02#section-5
-const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite', 'selected-version', 'eat', 'ta-list', 'ext-list', 'manifest-list', 'msg', 'err-msg'];
+const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite',
+    'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
+    'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
+    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token'];
 
 //ref. draft-ietf-teep-protocol-04#section-6
 //cipher-suites
 const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1
-const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256  = 2
+const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256 = 2
 
 var init = function () {
     console.log("called TEEP-P init");
@@ -29,17 +32,17 @@ var initMessage = function () {
     //generate queryRequest
     var queryRequest = new Object();
     queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-    queryRequest.TOKEN = 2004318071; // The value in the TOKEN field is used to match requests to responses.
     //queryRequest.OPTIONS = null; // Option Field is mandatory? even no elements in options
     queryRequest.OPTIONS = new Map();
-    queryRequest.OPTIONS.set(1,[TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite
-    queryRequest.OPTIONS.set(3,[0]); //version
+    queryRequest.OPTIONS.set(1, [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite
+    queryRequest.OPTIONS.set(3, [0]); //version
+    queryRequest.OPTIONS.set(20, 2004318071); // The value in the TOKEN field is used to match requests to responses.
     let buf = new ArrayBuffer(3);
     let dv = new DataView(buf);
-    dv.setUint8(0,01);
-    dv.setUint8(1,02);
-    dv.setUint8(2,03);
-    queryRequest.OPTIONS.set(4,buf); //ocsp-data
+    dv.setUint8(0, 01);
+    dv.setUint8(1, 02);
+    dv.setUint8(2, 03);
+    queryRequest.OPTIONS.set(4, buf); //ocsp-data
     queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
 
     return queryRequest;
@@ -51,7 +54,7 @@ var parseQueryResponse = function (obj, req) {
     console.log(obj.TOKEN);
     //record information(TBF)
     console.log(obj.TA_LIST);
-    //is delete api? <= !! this is not mentioned in Drafts.
+    //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
     let deleteFlg = req.path.includes("delete");
     //console.log(deleteFlg);
 
@@ -140,22 +143,23 @@ var parse = function (obj, req) {
 var buildCborArray = function (obj) {
     //responseObj => cbor-ordered Array
     //common order: 1->type 2->token
-    let cborArray = [obj.TYPE, obj.TOKEN];
+    let cborArray = [obj.TYPE];
     switch (obj.TYPE) {
         case 1: // QueryRequest
-            if(obj.OPTIONS == null){
+            if (obj.OPTIONS == null) {
                 obj.OPTIONS = new cbor.Map();
             }
             cborArray.push(obj.OPTIONS); // option is mandatory field even though no elements.
             cborArray.push(obj.REQUEST); // mandatory
             break;
-        case 3: // TrustedAppInstall
-            let TAInstallOption = new cbor.Map();
-            TAInstallOption.set(10, obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
-            cborArray.push(TAInstallOption);
+        case 3: // TrustedAppUpdate
+            let TAUpdateOption = new cbor.Map();
+            TAUpdateOption.set(10, obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
+            TAUpdateOption.set(20, obj.TOKEN); // 20: token * this token is not neccessary
+            cborArray.push(TAUpdateOption);
             break;
-        case 4: // TrustedAppDelete
-            break;
+        // case 4: // TrustedAppDelete (this type removed and merged into `update`)
+        //     break;
     }
     return cborArray;
 }
@@ -165,14 +169,14 @@ var parseCborArrayHelper = function (arr) {
     //common order: 1->type 2->token
     let requestObj = new Object();
     requestObj.TYPE = arr[0];
-    requestObj.TOKEN = arr[1];
+    //requestObj.TOKEN = arr[1]; Now token is one element of options array.
 
     //TODO: validate arr elements
     switch (arr[0]) {
         case 2: // QueryResponse
-            //arr[2] as a Map
+            //arr[1] as a Map
             //handle option's Map
-            arr[2].forEach(function (val, key, map) {
+            arr[1].forEach(function (val, key, map) {
                 requestObj[CBORLabels[key - 1]] = val;
             });
             if (requestObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
@@ -184,15 +188,30 @@ var parseCborArrayHelper = function (arr) {
                 });
                 requestObj.TA_LIST = requestObj[CBORLabels[7]];
             }
+            if (requestObj.hasOwnProperty(CBORLabels[19])) {
+                requestObj.TOKEN = requestObj[CBORLabels[19]];
+            }
             break;
         case 5: // Success
-            if (arr.length == 3) {
-                for (key in arr[2]) {
-                    requestObj[CBORLabels[key - 1]] = arr[2][key];
+            if (arr.length == 2) {
+                arr[1].forEach(function (val, key, map) {
+                    requestObj[CBORLabels[key - 1]] = val;
+                });
+                // for (key in arr[1]) {
+                //      requestObj[CBORLabels[key - 1]] = arr[1][key];
+                // }
+                if (requestObj.hasOwnProperty(CBORLabels[19])) {
+                    requestObj.TOKEN = requestObj[CBORLabels[19]];
                 }
             }
             break;
         case 6: // Error
+            arr[1].forEach(function (val, key, map) {
+                requestObj[CBORLabels[key - 1]] = val;
+            });
+            if (requestObj.hasOwnProperty(CBORLabels[19])) {
+                requestObj.TOKEN = requestObj[CBORLabels[19]];
+            }
             requestObj.ERROR_CODE = arr[2];
             break;
     }
