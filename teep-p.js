@@ -10,7 +10,7 @@ const cbor = require('cbor');
 const fs = require('fs');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
-//ref. draft-ietf-teep-protocol-02#section-5
+//ref. draft-ietf-teep-protocol-20201208#section-5
 const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite',
     'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
@@ -55,7 +55,7 @@ var parseQueryResponse = function (obj, req) {
     //record information(TBF)
     console.log(obj.TA_LIST);
     //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
-    let deleteFlg = req.path.includes("delete");
+    //let deleteFlg = req.path.includes("delete");
     //console.log(deleteFlg);
 
     //judge?
@@ -66,39 +66,27 @@ var parseQueryResponse = function (obj, req) {
         });
     }
 
-    if (deleteFlg) {
-        // already installed TA?
-        if (installed) {
-            //build TA delete message
-            let trustedAppDelete = new Object();
-            trustedAppDelete.TYPE = 4; // TYPE = 4 corresponds to a TrustedAppDelete message sent from the TAM to the TEEP Agent. 
-            trustedAppDelete.TOKEN = 2004318072;
-            trustedAppDelete.TA_LIST = [];
-            trustedAppDelete.TA_LIST[0] = trustedAppUUID;
-            return trustedAppDelete;
-        } else {
-            //nothing to do
-            return null;
-        }
+    let trustedAppUpdate = new Object();
+    trustedAppUpdate.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
+    trustedAppUpdate.TOKEN = 2004318072;
+
+    // already installed TA?
+    if (installed) {
+        //build TA delete message
+        trustedAppUpdate.TC_LIST = [];
+        trustedAppUpdate.TC_LIST[0] = trustedAppUUID;
+        //return trustedAppUpdate;
     } else {
-        // already installed TA?
-        if (installed) {
-            //nothing to do
-            return null;
-        } else {
-            //build TA install message
-            let trustedAppInstall = new Object();
-            trustedAppInstall.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppInstall message sent from the TAM to the TEEP Agent. 
-            trustedAppInstall.TOKEN = 2004318072; // 
-            trustedAppInstall.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-            //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
-            //embedding static SUIT CBOR content
-            let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
-            trustedAppInstall.MANIFEST_LIST.push(sampleSuitContents);
-            console.log(typeof trustedAppInstall.MANIFEST_LIST[0]);
-            return trustedAppInstall;
-        }
+        //build TA install message
+        trustedAppUpdate.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
+        //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
+        //embedding static SUIT CBOR content
+        let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
+        trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
+        console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
     }
+
+    return trustedAppUpdate;
 }
 
 var parseSuccessMessage = function (obj) {
@@ -154,8 +142,13 @@ var buildCborArray = function (obj) {
             break;
         case 3: // TrustedAppUpdate
             let TAUpdateOption = new cbor.Map();
-            TAUpdateOption.set(10, obj.MANIFEST_LIST); // 10: manifest-list (ref.CBORLabels)
+            if (obj.hasOwnProperty(CBORLabels[9])) { // 10: manifest-list (ref.CBORLabels)
+                TAUpdateOption.set(10, obj.MANIFEST_LIST);
+            }
             TAUpdateOption.set(20, obj.TOKEN); // 20: token * this token is not neccessary
+            if (obj.hasOwnProperty(CBORLabels[7])) { // 8: tc-list (unneeded and deleting TC-LIST)
+                TAUpdateOption.set(8, obj.TC_LIST);
+            }
             cborArray.push(TAUpdateOption);
             break;
         // case 4: // TrustedAppDelete (this type removed and merged into `update`)

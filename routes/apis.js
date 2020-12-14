@@ -237,36 +237,6 @@ router.post('/tam', function (req, res, next) {
    // }
 });
 
-// no encrypt for TA delete
-router.post('/tam_delete', function (req, res, next) {
-   // check POST content
-   console.log(req.headers);
-   console.log(req.body);
-   let ret = null;
-
-   //set response header
-   res.set({
-      'Content-Type': 'application/teep+json',
-      'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'none'",
-      'Referrer-Policy': 'no-referrer'
-   });
-
-   ret = teepImplHandler(req, req.body);
-
-   if (ret == null) {
-      res.set(null);
-      res.status(204);
-      res.end();
-   } else {
-      //res.set(ret);
-      res.send(JSON.stringify(ret));
-      res.end();
-   }
-
-   return;
-});
-
 //CBOR (no encrypt and sign)
 router.post('/tam_cbor', checkContentType ,function (req, res, next) {
    // check POST content
