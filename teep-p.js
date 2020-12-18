@@ -141,12 +141,13 @@ var buildCborArray = function (obj) {
             cborArray.push(obj.REQUEST); // mandatory
             break;
         case 3: // TrustedAppUpdate
+            console.log(obj);
             let TAUpdateOption = new cbor.Map();
-            if (obj.hasOwnProperty(CBORLabels[9])) { // 10: manifest-list (ref.CBORLabels)
+            if (obj.hasOwnProperty("MANIFEST_LIST")) { // 10: manifest-list (ref.CBORLabels)
                 TAUpdateOption.set(10, obj.MANIFEST_LIST);
             }
             TAUpdateOption.set(20, obj.TOKEN); // 20: token * this token is not neccessary
-            if (obj.hasOwnProperty(CBORLabels[7])) { // 8: tc-list (unneeded and deleting TC-LIST)
+            if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
                 TAUpdateOption.set(8, obj.TC_LIST);
             }
             cborArray.push(TAUpdateOption);
