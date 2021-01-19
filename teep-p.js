@@ -8,6 +8,7 @@ const ip = require('ip');
 const app = require('./app');
 const cbor = require('cbor');
 const fs = require('fs');
+const { request } = require('./app');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 //ref. draft-ietf-teep-protocol-20201208#section-5
@@ -56,6 +57,7 @@ var parseQueryResponse = function (obj, req) {
     console.log(obj.TA_LIST);
     //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
     //let deleteFlg = req.path.includes("delete");
+    console.log(obj.UNNEEDED_TC_LIST);
     //console.log(deleteFlg);
 
     //judge?
@@ -84,6 +86,14 @@ var parseQueryResponse = function (obj, req) {
         let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
         trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
         console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
+    }
+
+    if (typeof obj.UNNEEDED_TC_LIST !== 'undefined') {
+        // unnneeded tc list
+        trustedAppUpdate.UNNEEDED_TC_LIST = [];
+        let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
+        trustedAppUpdate.UNNEEDED_TC_LIST.push(sampleSuitContents);
+        console.log(typeof trustedAppUpdate.UNNEEDED_TC_LIST[0]);
     }
 
     return trustedAppUpdate;
@@ -150,6 +160,9 @@ var buildCborArray = function (obj) {
             if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
                 TAUpdateOption.set(8, obj.TC_LIST);
             }
+            if (obj.hasOwnProperty("UNNEEDED_TC_LIST")) { // 15: unneeded-tc-list
+                TAUpdateOption.set(15,obj.UNNEEDED_TC_LIST);
+            }
             cborArray.push(TAUpdateOption);
             break;
         // case 4: // TrustedAppDelete (this type removed and merged into `update`)
@@ -181,6 +194,12 @@ var parseCborArrayHelper = function (arr) {
                     return val.toString('hex');
                 });
                 requestObj.TA_LIST = requestObj[CBORLabels[7]];
+            }
+            if (requestObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(requestObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
+                requestObj[CBORLabels[14]] = requestObj[CBORLabels[14]].map(function (val) {
+                    return val.toString('hex');
+                });
+                requestObj.UNNEEDED_TC_LIST = requestObj[CBORLabels[14]];
             }
             if (requestObj.hasOwnProperty(CBORLabels[19])) {
                 requestObj.TOKEN = requestObj[CBORLabels[19]];
