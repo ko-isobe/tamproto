@@ -91,8 +91,12 @@ var parseQueryResponse = function (obj, req) {
     if (typeof obj.UNNEEDED_TC_LIST !== 'undefined') {
         // unnneeded tc list
         trustedAppUpdate.UNNEEDED_TC_LIST = [];
-        let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
-        trustedAppUpdate.UNNEEDED_TC_LIST.push(sampleSuitContents);
+        let buf = new ArrayBuffer(3);
+        let dv = new DataView(buf);
+        dv.setUint8(0, 01);
+        dv.setUint8(1, 02);
+        dv.setUint8(2, 03);
+        trustedAppUpdate.UNNEEDED_TC_LIST.push([buf]); // SUIT_Component_Identifier(bstr)
         console.log(typeof trustedAppUpdate.UNNEEDED_TC_LIST[0]);
     }
 
@@ -161,7 +165,7 @@ var buildCborArray = function (obj) {
                 TAUpdateOption.set(8, obj.TC_LIST);
             }
             if (obj.hasOwnProperty("UNNEEDED_TC_LIST")) { // 15: unneeded-tc-list
-                TAUpdateOption.set(15,obj.UNNEEDED_TC_LIST);
+                TAUpdateOption.set(15, obj.UNNEEDED_TC_LIST);
             }
             cborArray.push(TAUpdateOption);
             break;
