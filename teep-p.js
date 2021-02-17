@@ -37,12 +37,17 @@ var initMessage = function () {
     queryRequest.OPTIONS = new Map();
     queryRequest.OPTIONS.set(1, [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite
     queryRequest.OPTIONS.set(3, [0]); //version
-    queryRequest.OPTIONS.set(20, 2004318071); // The value in the TOKEN field is used to match requests to responses.
+    // @TODO move to buidCborArray func.
+    let initToken = new ArrayBuffer(8);
+    let initTokenView = new DataView(initToken);
+    initTokenView.setUint32(0, 0x77777777); //2004318071
+    initTokenView.setUint32(4, 0x77777777);
+    queryRequest.OPTIONS.set(20, initToken); // The value in the TOKEN field is used to match requests to responses.
     let buf = new ArrayBuffer(3);
     let dv = new DataView(buf);
     dv.setUint8(0, 01);
     dv.setUint8(1, 02);
-    dv.setUint8(2, 03);
+    dv.setUint8(2, 05);
     queryRequest.OPTIONS.set(4, buf); //ocsp-data
     queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
 
@@ -70,7 +75,15 @@ var parseQueryResponse = function (obj, req) {
 
     let trustedAppUpdate = new Object();
     trustedAppUpdate.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
-    trustedAppUpdate.TOKEN = 2004318072;
+    //trustedAppUpdate.TOKEN = 2004318072;
+    // token is bstr @TODO move to buidCborArray func.
+    trustedAppUpdate.TOKEN = new ArrayBuffer(8); //token => bstr .size (8..64)
+    let tokenVal = "ABA1A2A3A4A5A6A7"; // hex 
+    let tokenView = new DataView(trustedAppUpdate.TOKEN);
+    for (let i = 0; i < (tokenVal.length / 8); i++) {
+        //console.log(tokenVal.slice(8 * i, 8 * (i + 1)));
+        tokenView.setUint32(i * 4, '0x' + tokenVal.slice(8 * i, 8 * (i + 1)));
+    }
 
     // already installed TA?
     if (installed) {
@@ -206,7 +219,7 @@ var parseCborArrayHelper = function (arr) {
                 requestObj.UNNEEDED_TC_LIST = requestObj[CBORLabels[14]];
             }
             if (requestObj.hasOwnProperty(CBORLabels[19])) {
-                requestObj.TOKEN = requestObj[CBORLabels[19]];
+                requestObj.TOKEN = requestObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
             }
             break;
         case 5: // Success
