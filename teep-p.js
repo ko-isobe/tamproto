@@ -96,8 +96,11 @@ var parseQueryResponse = function (obj, req) {
         trustedAppUpdate.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
         //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
         //embedding static SUIT CBOR content
-        let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
-        trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
+        //let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
+        //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
+        
+        //override URI in SUIT manifest and embed 
+        trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor","https://tam-distrubute-point.example.com/"));
         console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
     }
 
@@ -247,6 +250,29 @@ var parseCborArrayHelper = function (arr) {
     }
     return requestObj;
 }
+
+var setUriDirective = function (manifest_path, uri) {
+    let suitContents = fs.readFileSync(manifest_path);
+    let parsedCbor = cbor.decodeFirstSync(suitContents);
+
+    // suit-install = 9, suit-parameter-uri = 21, suit-directive-override-parameters = 20
+    let suit_uri = new cbor.Map();
+    suit_uri.set(21, uri);
+    parsedCbor.set(9, cbor.encodeOne([20, suit_uri])); // text string (NOT bstr)
+    
+    // suit-validate = 10, suit-condition-image-match = 3
+    // SUIT_Rep_Policy = uint .bits suit-reporting-bits
+    // suit-reporting-bits = &(
+    //     suit-send-record-success : 0,
+    //     suit-send-record-failure : 1,
+    //     suit-send-sysinfo-success : 2,
+    //     suit-send-sysinfo-failure : 3
+    // )
+    parsedCbor.set(10, cbor.encodeOne([3, 15]));
+
+    return cbor.encode(parsedCbor);
+}
+
 var teepp = new Object();
 teepp.init = init;
 teepp.initMessage = initMessage;
