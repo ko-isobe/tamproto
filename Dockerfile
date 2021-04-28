@@ -14,6 +14,9 @@ RUN apk add --no-cache --virtual .gyp python make g++ \
     && apk del .gyp
 
 COPY . /usr/src/app
+# build libcsuit
+RUN sh /usr/src/app/suit/build.sh
+
 
 ENV PORT 8888
 EXPOSE $PORT

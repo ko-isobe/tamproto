@@ -1,0 +1,9 @@
+[submodule "suit/libcsuit"]
+	path = suit/libcsuit
+	url = https://github.com/yuichitk/libcsuit.git
+[submodule "suit/QCBOR"]
+	path = suit/QCBOR
+	url = https://github.com/laurencelundblade/QCBOR.git
+[submodule "suit/t_cose"]
+	path = suit/t_cose
+	url = https://github.com/laurencelundblade/t_cose.git
