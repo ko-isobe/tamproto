@@ -1,6 +1,5 @@
 #!/bin/sh
-
-cd /usr/src/app/suit
+cd /usr/src/app/suit/
 # install build tool
 apk add make g++ libressl-dev 
 # QCBOR
@@ -12,3 +11,5 @@ make -f Makefile.ossl install
 # libcsuit
 cd ../libcsuit
 make -f Makefile.parser test
+make -f Makefile.teep all
+# TODO: remove unneccesary apk packages
