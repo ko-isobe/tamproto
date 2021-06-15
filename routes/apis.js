@@ -11,44 +11,45 @@ var jose = require('node-jose');
 var cbor = require('cbor');
 var cose = require('cose-js');
 var fs = require('fs');
-var nconf = require('nconf');
+var keyManager = require('../keymanager.js');
+//var nconf = require('nconf');
 const { promiseImpl } = require('ejs');
 const { resolve } = require('path');
-nconf.use('file', { file: './config.json' });
-nconf.load();
+//nconf.use('file', { file: './config.json' });
+//nconf.load();
 
-var keystore = jose.JWK.createKeyStore();
-var tee_pubkey = fs.readFileSync("./key/" + nconf.get('key:TEE_pub'), function (err, data) {
-   console.log(data);
-});
+// var keystore = jose.JWK.createKeyStore();
+// var tee_pubkey = fs.readFileSync("./key/" + nconf.get('key:TEE_pub'), function (err, data) {
+//    console.log(data);
+// });
 
-var tam_pubkey = fs.readFileSync("./key/" + nconf.get('key:TAM_pub'), function (err, data) {
-   console.log(data);
-});
+// var tam_pubkey = fs.readFileSync("./key/" + nconf.get('key:TAM_pub'), function (err, data) {
+//    console.log(data);
+// });
 
-var tam_privkey = fs.readFileSync("./key/" + nconf.get('key:TAM_priv'), function (err, data) {
-   console.log(data);
-});
+// var tam_privkey = fs.readFileSync("./key/" + nconf.get('key:TAM_priv'), function (err, data) {
+//    console.log(data);
+// });
 
-var tee_privkey = fs.readFileSync("./key/" + nconf.get('key:TEE_priv'), function (err, data) {
-   console.log(data);
-});
+// var tee_privkey = fs.readFileSync("./key/" + nconf.get('key:TEE_priv'), function (err, data) {
+//    console.log(data);
+// });
 
-var jwk_tam_privkey, jwk_tee_pubkey, jwk_tee_privkey, jwk_tam_pubkey;
+// var jwk_tam_privkey, jwk_tee_pubkey, jwk_tee_privkey, jwk_tam_pubkey;
 
-keystore.add(tee_pubkey, "json").then(function (result) {
-   jwk_tee_pubkey = result;
-});
-keystore.add(tam_privkey, "json").then(function (result) {
-   jwk_tam_privkey = result;
-});
-keystore.add(tee_privkey, "json").then(function (result) {
-   jwk_tee_privkey = result;
-});
-keystore.add(tam_pubkey, "json").then(function (result) {
-   console.log(result);
-   jwk_tam_pubkey = result;
-});
+// keystore.add(tee_pubkey, "json").then(function (result) {
+//    jwk_tee_pubkey = result;
+// });
+// keystore.add(tam_privkey, "json").then(function (result) {
+//    jwk_tam_privkey = result;
+// });
+// keystore.add(tee_privkey, "json").then(function (result) {
+//    jwk_tee_privkey = result;
+// });
+// keystore.add(tam_pubkey, "json").then(function (result) {
+//    console.log(result);
+//    jwk_tam_pubkey = result;
+// });
 
 const checkContentType = (req, res, next) => {
    if (req.headers['content-type'] !== "application/teep+cbor") {
@@ -105,48 +106,6 @@ let teepImplHandler = function (req, body) {
    }
 }
 
-let keyReload = function () {
-   return new Promise(resolve => {
-      let tee_pubkey = fs.readFileSync("./key/" + nconf.get('key:TEE_pub'), function (err, data) {
-         console.log(data);
-      });
-
-      let tam_pubkey = fs.readFileSync("./key/" + nconf.get('key:TAM_pub'), function (err, data) {
-         console.log(data);
-      });
-
-      let tam_privkey = fs.readFileSync("./key/" + nconf.get('key:TAM_priv'), function (err, data) {
-         console.log(data);
-      });
-
-      let tee_privkey = fs.readFileSync("./key/" + nconf.get('key:TEE_priv'), function (err, data) {
-         console.log(data);
-      });
-
-      let jwk_tam_privkey, jwk_tee_pubkey, jwk_tee_privkey, jwk_tam_pubkey;
-
-      keystore.add(tee_pubkey, "json").then(function (result) {
-         console.log(tee_pubkey);
-         console.log(result);
-         jwk_tee_pubkey = result;
-      });
-      keystore.add(tam_privkey, "json").then(function (result) {
-         jwk_tam_privkey = result;
-      });
-      keystore.add(tee_privkey, "json").then(function (result) {
-         jwk_tee_privkey = result;
-      });
-      keystore.add(tam_pubkey, "json").then(function (result) {
-
-         console.log(result);
-         jwk_tam_pubkey = result;
-
-         resolve(result);
-      });
-   });
-   //console.log("Key Reloaded");
-   //return;
-}
 
 let cose_handler = async function (TeePubKeyObj, req) {
    let promise = new Promise((resolve, reject) => {
@@ -238,7 +197,7 @@ router.post('/tam', function (req, res, next) {
 });
 
 //CBOR (no encrypt and sign)
-router.post('/tam_cbor', checkContentType ,function (req, res, next) {
+router.post('/tam_cbor', checkContentType, function (req, res, next) {
    // check POST content
    console.log("Access from: " + req.ip);
    console.log(req.headers);
@@ -302,6 +261,7 @@ router.post('/tam_cose', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
+   // @TODO switch using keyManager
    let TeePubKeyObj = JSON.parse(tee_pubkey.toString('utf8'));
 
    new Promise(function (resolve, reject) {
@@ -348,11 +308,13 @@ router.post('/tam_cose', function (req, res, next) {
 
 let signAndEncrypt = function (data) {
    const p = new Promise((resolve, reject) => {
+      // @TODO switch using keyManager
       jose.JWS.createSign({ format: "flattened" }, jwk_tee_privkey).update(JSON.stringify(data)).final().then(
          function (result) {
             console.log(result);
             console.log(typeof result);
             //signedRequest = result;
+            // @TODO switch using keyManager
             jose.JWE.createEncrypt({ format: "flattened", fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
                .update(JSON.stringify(result))
                .final().then(
@@ -828,6 +790,7 @@ router.get('/testgen_cose', function (req, res) {
       'p': { 'alg': 'ES256' },
       'u': { 'kid': '' }
    };
+   // @TODO switch using keyManager
    let TeePubKeyObj = JSON.parse(tee_pubkey.toString('utf8'));
    let signer = {
       'key': {
@@ -840,6 +803,14 @@ router.get('/testgen_cose', function (req, res) {
       res.end();
       return;
    });
+});
+
+router.get('/keycheck', function (req, res) {
+   //console.log(keyManager.config);
+   let tamPriv = keyManager.getKeyBinary("TAM_priv");
+   console.log(tamPriv);
+   res.send("").end();
+   return;
 });
 
 module.exports = router;

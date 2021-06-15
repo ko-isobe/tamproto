@@ -27,9 +27,10 @@ var keystorage = multer.diskStorage({
 var upload = multer({ storage: storage });
 var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
-var nconf = require('nconf');
-nconf.use('file', { file: './config.json' });
-nconf.load();
+var keyManager = require('../keymanager.js');
+//var nconf = require('nconf');
+//nconf.use('file', { file: './config.json' });
+//nconf.load();
 //console.log(nconf);
 
 let keyStore = jose.JWK.createKeyStore();
@@ -89,10 +90,15 @@ const getKeysList = (req, res, next) => {
     //common middleware - collect key files and URL setting
     res.locals.fullURL = req.protocol + '://' + req.get('host');
     //load key config
-    res.locals.key_TAMpriv = nconf.get('key:TAM_priv');
-    res.locals.key_TAMpub = nconf.get('key:TAM_pub');
-    res.locals.key_TEEpriv = nconf.get('key:TEE_priv');
-    res.locals.key_TEEpub = nconf.get('key:TEE_pub');
+    // res.locals.key_TAMpriv = nconf.get('key:TAM_priv');
+    // res.locals.key_TAMpub = nconf.get('key:TAM_pub');
+    // res.locals.key_TEEpriv = nconf.get('key:TEE_priv');
+    // res.locals.key_TEEpub = nconf.get('key:TEE_pub');
+    let configs = keyManager.getAllKeyName();
+    res.locals.key_TAMpriv = configs.TAM_priv;
+    res.locals.key_TAMpub = configs.TAM_pub;
+    res.locals.key_TEEpriv = configs.TEE_priv;
+    res.locals.key_TEEpub = configs.TEE_pub;
     //collect key files
     fs.readdir('./key', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
@@ -124,18 +130,26 @@ router.get('/key_delete', getKeysList, function (req, res) {
 });
 
 router.post('/key_config', getKeysList, function (req, res) {
-    nconf.set('key:TAM_priv', req.body.tam_priv);
-    nconf.set('key:TAM_pub', req.body.tam_pub);
-    nconf.set('key:TEE_priv', req.body.tee_priv);
-    nconf.set('key:TEE_pub', req.body.tee_pub);
-    console.log(nconf.get('key'));
-    nconf.save();
+    // nconf.set('key:TAM_priv', req.body.tam_priv);
+    // nconf.set('key:TAM_pub', req.body.tam_pub);
+    // nconf.set('key:TEE_priv', req.body.tee_priv);
+    // nconf.set('key:TEE_pub', req.body.tee_pub);
+    // console.log(nconf.get('key'));
+    // //nconf.save();
+    //new keyManager
+    keyManager.setKeyName("TAM_priv", req.body.tam_priv);
+    keyManager.setKeyName("TAM_pub", req.body.tam_pub);
+    keyManager.setKeyName("TEE_priv", req.body.tee_priv);
+    keyManager.setKeyName("TEE_pub", req.body.tee_pub);
+    keyManager.saveConfig();
+    keyManager.loadKeyBinary();
     console.log("==");
     //load key config
-    res.locals.key_TAMpriv = nconf.get('key:TAM_priv');
-    res.locals.key_TAMpub = nconf.get('key:TAM_pub');
-    res.locals.key_TEEpriv = nconf.get('key:TEE_priv');
-    res.locals.key_TEEpub = nconf.get('key:TEE_pub');
+    let configs = keyManager.getAllKeyName();
+    res.locals.key_TAMpriv = configs.TAM_priv;
+    res.locals.key_TAMpub = configs.TAM_pub;
+    res.locals.key_TEEpriv = configs.TEE_priv;
+    res.locals.key_TEEpub = configs.TEE_pub;
     res.render("./keymanage.ejs");
 });
 
