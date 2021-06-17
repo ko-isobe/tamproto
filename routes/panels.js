@@ -13,7 +13,13 @@ var storage = multer.diskStorage({
         cb(null, './TAs');
     },
     filename: function (req, file, cb) {
-        cb(null, file.originalname);
+        console.log(req.body.uuid);
+        let fileext = file.originalname.match(/.+(\..+)$/); // extract file extension
+        if (req.body.uuid && fileext != null) {
+            cb(null, req.body.uuid + fileext[1]);
+        } else {
+            cb(null, file.originalname);
+        }
     }
 });
 var keystorage = multer.diskStorage({
@@ -27,7 +33,9 @@ var keystorage = multer.diskStorage({
 var upload = multer({ storage: storage });
 var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
+const { userInfo } = require('os');
 var keyManager = require('../keymanager.js');
+var suit = require('../suit');
 //var nconf = require('nconf');
 //nconf.use('file', { file: './config.json' });
 //nconf.load();
@@ -66,6 +74,17 @@ router.post('/upload', upload.single('file'), function (req, res, next) {
         res.locals.files = fileList;
         res.render("./index.ejs");
     });
+});
+
+// just API, not for browser access
+// uuid as string
+// file[0]=>manifest.cbor, file[1]=>TC binary.bin
+// These parameters are required by IN-ORDER.
+router.post('/upload_manifest_and_TC', upload.array('file', 2), function (req, res, next) {
+    console.log(req.files);
+    console.log(req.body);
+    suit.genDistributeManifest(req.files[0].filename,req.files[1].filename);
+    res.send(200);
 });
 
 router.get('/delete', function (req, res) {
