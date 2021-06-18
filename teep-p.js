@@ -100,7 +100,19 @@ var parseQueryResponse = function (obj, req) {
         //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
         
         //override URI in SUIT manifest and embed 
-        trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor","https://tam-distrubute-point.example.com/"));
+        //trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor","https://tam-distrubute-point.example.com/"));
+        let isExistTC = fs.readdirSync('./TAs', { withFileTypes: true }, function (err, files) {
+            if (err) throw err;
+            console.log(files);
+            return files.includes(obj.TA_LIST[0] + ".cbor");
+        });
+        if (isExistTC){
+            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] +".cbor"));
+            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] +"_TAM.cbor"));
+        }
+        //find dependency SUIT manifests and set to response
+
+
         console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
     }
 

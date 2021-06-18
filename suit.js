@@ -15,7 +15,7 @@ var genDistributeManifest = (manifest_fname,tcbinary_fname) => {
     let tc_uri = "http://localhost:8888/TAs/" + tcbinary_fname;
     let tam_keypath = "../../key/tam_prime256v1.der";
     let manifest_orgname = manifest_fname.replace('.cbor','');
-    let TAMManifest_path = "../../TAs/" + manifest_fname + "_TAM.cbor";
+    let TAMManifest_path = "../../TAs/" + manifest_orgname + "_TAM.cbor";
     let commands_manifestD = `./suit_for_teep_depending ${TCManifest_path} ${tc_uri} ${tam_keypath}  ${TAMManifest_path}`;
     ret = execSync(commands_manifestD, {
         cwd: '/usr/src/app/suit/libcsuit'
@@ -24,6 +24,7 @@ var genDistributeManifest = (manifest_fname,tcbinary_fname) => {
     console.log(ret.toString());
 
     console.log("finished generateManifest");
+    return manifest_orgname;
 }
 
 // var genDistributeManifest = (manifest_fname,tcbinary_fname) => {

@@ -80,11 +80,25 @@ router.post('/upload', upload.single('file'), function (req, res, next) {
 // uuid as string
 // file[0]=>manifest.cbor, file[1]=>TC binary.bin
 // These parameters are required by IN-ORDER.
+// curl --location --request POST 'http://localhost:8888/panel/upload_manifest_and_TC' \
+// --form 'uuid="hogehoge"' \
+// --form 'file=@"XXXX.cbor"' \
+// --form 'file=@"XXXX.bin"'
 router.post('/upload_manifest_and_TC', upload.array('file', 2), function (req, res, next) {
     console.log(req.files);
     console.log(req.body);
-    suit.genDistributeManifest(req.files[0].filename,req.files[1].filename);
-    res.send(200);
+    let tcname = suit.genDistributeManifest(req.files[0].filename,req.files[1].filename);
+    if(tcname == null){
+        res.send(500);
+        return;
+    }else{
+        let obj = new Object();
+        obj.tcname = tcname;
+        obj.tc_manifest = req.protocol + '://' + req.get('host') + '/TAs/' + tcname + ".cbor";
+        obj.tam_manifest = req.protocol + '://' + req.get('host') + '/TAs/' + tcname + "_TAM.cbor";
+        res.json(obj);
+        return;
+    }
 });
 
 router.get('/delete', function (req, res) {
