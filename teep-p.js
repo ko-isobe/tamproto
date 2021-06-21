@@ -69,6 +69,7 @@ var parseQueryResponse = function (obj, req) {
     let installed = false;
     if (Array.isArray(obj.TA_LIST)) {
         obj.TA_LIST.filter(x => {
+            console.log(typeof x);
             installed = (x === trustedAppUUID);
         });
     }
@@ -98,7 +99,7 @@ var parseQueryResponse = function (obj, req) {
         //embedding static SUIT CBOR content
         //let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
         //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
-        
+
         //override URI in SUIT manifest and embed 
         //trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor","https://tam-distrubute-point.example.com/"));
         let isExistTC = fs.readdirSync('./TAs', { withFileTypes: true }, function (err, files) {
@@ -106,9 +107,9 @@ var parseQueryResponse = function (obj, req) {
             console.log(files);
             return files.includes(obj.TA_LIST[0] + ".cbor");
         });
-        if (isExistTC){
-            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] +".cbor"));
-            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] +"_TAM.cbor"));
+        if (isExistTC) {
+            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] + ".cbor"));
+            trustedAppUpdate.MANIFEST_LIST.push(fs.readFileSync("./TAs/" + obj.TA_LIST[0] + "_TAM.cbor"));
         }
         //find dependency SUIT manifests and set to response
 
@@ -223,7 +224,7 @@ var parseCborArrayHelper = function (arr) {
             }
             if (requestObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(requestObj[CBORLabels[7]])) { // ta-list Buffer=>String
                 requestObj[CBORLabels[7]] = requestObj[CBORLabels[7]].map(function (val) {
-                    return val.toString('hex');
+                    return val.toString('utf-8');
                 });
                 requestObj.TA_LIST = requestObj[CBORLabels[7]];
             }
@@ -271,7 +272,7 @@ var setUriDirective = function (manifest_path, uri) {
     let suit_uri = new cbor.Map();
     suit_uri.set(21, uri);
     parsedCbor.set(9, cbor.encodeOne([20, suit_uri])); // text string (NOT bstr)
-    
+
     // suit-validate = 10, suit-condition-image-match = 3
     // SUIT_Rep_Policy = uint .bits suit-reporting-bits
     // suit-reporting-bits = &(
