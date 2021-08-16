@@ -11,31 +11,43 @@ const fs = require('fs');
 const { request } = require('./app');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
-//ref. draft-ietf-teep-protocol-20201208#section-5
-const CBORLabels = ['cipher-suites', 'nonce', 'version', 'ocsp-data', 'selected-cipher-suite',
+//ref. draft-ietf-teep-protocol-05#appendix-C
+const TEEP_TYPE_query_request = 1;
+const TEEP_TYPE_query_response = 2;
+const TEEP_TYPE_update = 3;
+const TEEP_TYPE_teep_success = 5;
+const TEEP_TYPE_teep_error = 6;
+
+//ref. draft-ietf-teep-protocol-06#section-5
+const CBORLabels = ['supported-cipher-suites', 'challenge', 'version', 'ocsp-data', 'selected-cipher-suite',
     'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
-    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token'];
+    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
 
-//ref. draft-ietf-teep-protocol-04#section-6
+//ref. draft-ietf-teep-protocol-06#section-7
 //cipher-suites
-const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1
-const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256 = 2
+const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1;
+const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256 = 2;
+
+//ref. draft-ietf-teep-protocol-06#apppendix-C
+const TEEP_FRESHNESS_NONCE = 0;
+const TEEP_FRESHNESS_TIMESTAMP = 1;
+const TEEP_FRESHNESS_EPOCH_ID = 2;
 
 var init = function () {
     console.log("called TEEP-P init");
     return false;
 }
 
-var initMessage = function () {
+var initMessage = function () { //generate queryRequest
     //make secure token(TBF)
     //record token(TBF)
-    //generate queryRequest
+    //build queryRequest
     var queryRequest = new Object();
-    queryRequest.TYPE = 1; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
+    queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
     //queryRequest.OPTIONS = null; // Option Field is mandatory? even no elements in options
     queryRequest.OPTIONS = new Map();
-    queryRequest.OPTIONS.set(1, [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite
+    queryRequest.OPTIONS.set(1, [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite as array
     queryRequest.OPTIONS.set(3, [0]); //version
     // @TODO move to buidCborArray func.
     let initToken = new ArrayBuffer(8);
@@ -49,7 +61,10 @@ var initMessage = function () {
     dv.setUint8(1, 02);
     dv.setUint8(2, 05);
     queryRequest.OPTIONS.set(4, buf); //ocsp-data
+    //data-item-requested
     queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
+    //supported-freshness-mechanisms
+    queryRequest.OPTIONS.set(21, [TEEP_FRESHNESS_NONCE]);
 
     return queryRequest;
 }
@@ -74,7 +89,7 @@ var parseQueryResponse = function (obj, req) {
     }
 
     let trustedAppUpdate = new Object();
-    trustedAppUpdate.TYPE = 3; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
+    trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
     //trustedAppUpdate.TOKEN = 2004318072;
     // token is bstr @TODO move to buidCborArray func.
     trustedAppUpdate.TOKEN = new ArrayBuffer(8); //token => bstr .size (8..64)
@@ -98,9 +113,9 @@ var parseQueryResponse = function (obj, req) {
         //embedding static SUIT CBOR content
         //let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
         //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
-        
+
         //override URI in SUIT manifest and embed 
-        trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor","https://tam-distrubute-point.example.com/"));
+        trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor", "https://tam-distrubute-point.example.com/"));
         console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
     }
 
@@ -125,7 +140,9 @@ var parseSuccessMessage = function (obj) {
     console.log(obj.TOKEN);
     //record information(TBF)
     console.log(obj.msg);
-
+    if (obj.reports !== undefined) {
+        console.log(obj.reports); // teep-protocol-04
+    }
     return;
 }
 
@@ -136,19 +153,21 @@ var parse = function (obj, req) {
     console.log(obj);
     console.log(typeof obj);
 
-    //JSON Scheme validation(TBF)
+    //Cbor Scheme validation(TBF)
 
     switch (obj.TYPE) {
-        case 2: //queryResponse
+        case TEEP_TYPE_query_response: //queryResponse
             ret = parseQueryResponse(obj, req);
             break;
-        case 5:
+        case TEEP_TYPE_teep_success:
             // Success
             parseSuccessMessage(obj);
             return;
             break;
-        case 6:
+        case TEEP_TYPE_teep_error:
             // Error
+            // parseErrorMessage(obj); @TODO
+            // return;
             break;
         default:
             console.log("ERR!: cannot handle this message type :" + obj.TYPE);
@@ -163,14 +182,15 @@ var buildCborArray = function (obj) {
     //common order: 1->type 2->token
     let cborArray = [obj.TYPE];
     switch (obj.TYPE) {
-        case 1: // QueryRequest
+        case TEEP_TYPE_query_request: // QueryRequest
             if (obj.OPTIONS == null) {
                 obj.OPTIONS = new cbor.Map();
             }
             cborArray.push(obj.OPTIONS); // option is mandatory field even though no elements.
             cborArray.push(obj.REQUEST); // mandatory
+
             break;
-        case 3: // TrustedAppUpdate
+        case TEEP_TYPE_update: // TrustedAppUpdate
             console.log(obj);
             let TAUpdateOption = new cbor.Map();
             if (obj.hasOwnProperty("MANIFEST_LIST")) { // 10: manifest-list (ref.CBORLabels)
@@ -186,7 +206,7 @@ var buildCborArray = function (obj) {
             cborArray.push(TAUpdateOption);
             break;
         // case 4: // TrustedAppDelete (this type removed and merged into `update`)
-        //     break;
+        // purged at teep-protocol-05 draft
     }
     return cborArray;
 }
@@ -196,11 +216,11 @@ var parseCborArrayHelper = function (arr) {
     //common order: 1->type 2->token
     let requestObj = new Object();
     requestObj.TYPE = arr[0];
-    //requestObj.TOKEN = arr[1]; Now token is one element of options array.
+    //requestObj.TOKEN = arr[1]; Since protocol-05, token is one element of options array.
 
     //TODO: validate arr elements
     switch (arr[0]) {
-        case 2: // QueryResponse
+        case TEEP_TYPE_query_response: // QueryResponse
             //arr[1] as a Map
             //handle option's Map
             arr[1].forEach(function (val, key, map) {
@@ -225,7 +245,7 @@ var parseCborArrayHelper = function (arr) {
                 requestObj.TOKEN = requestObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
             }
             break;
-        case 5: // Success
+        case TEEP_TYPE_teep_success: // Success
             if (arr.length == 2) {
                 arr[1].forEach(function (val, key, map) {
                     requestObj[CBORLabels[key - 1]] = val;
@@ -236,9 +256,12 @@ var parseCborArrayHelper = function (arr) {
                 if (requestObj.hasOwnProperty(CBORLabels[19])) {
                     requestObj.TOKEN = requestObj[CBORLabels[19]];
                 }
+                if (requestObj.hasOwnProperty(CBORLabels[18])) {
+                    requestObj.reports = requestObj[CBORLabels[18]];
+                }
             }
             break;
-        case 6: // Error
+        case TEEP_TYPE_teep_error: // Error
             arr[1].forEach(function (val, key, map) {
                 requestObj[CBORLabels[key - 1]] = val;
             });
@@ -259,7 +282,7 @@ var setUriDirective = function (manifest_path, uri) {
     let suit_uri = new cbor.Map();
     suit_uri.set(21, uri);
     parsedCbor.set(9, cbor.encodeOne([20, suit_uri])); // text string (NOT bstr)
-    
+
     // suit-validate = 10, suit-condition-image-match = 3
     // SUIT_Rep_Policy = uint .bits suit-reporting-bits
     // suit-reporting-bits = &(
