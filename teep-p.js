@@ -23,7 +23,8 @@ const CBORLabels = ['supported-cipher-suites', 'challenge', 'version', 'ocsp-dat
     'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
     'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
-
+const cborLtoI = CBORLabels.reduce(function(obj,key,idx){return Object.assign(obj,{[key]:idx+1})},{}); //swap key,value
+console.log(cborLtoI);
 //ref. draft-ietf-teep-protocol-06#section-7
 //cipher-suites
 const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1;
@@ -194,28 +195,32 @@ var buildCborArray = function (obj) {
             console.log(obj);
             let TAUpdateOption = new cbor.Map();
             if (obj.hasOwnProperty("MANIFEST_LIST")) { // 10: manifest-list (ref.CBORLabels)
-                TAUpdateOption.set(10, obj.MANIFEST_LIST);
+                TAUpdateOption.set(cborLtoI['manifest-list'], obj.MANIFEST_LIST);
             }
-            TAUpdateOption.set(20, obj.TOKEN); // 20: token * this token is not neccessary
+            TAUpdateOption.set(cborLtoI.token, obj.TOKEN); // 20: token * this token is not neccessary
             if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
-                TAUpdateOption.set(8, obj.TC_LIST);
+                TAUpdateOption.set(cborLtoI.tc-list, obj.TC_LIST);
             }
             if (obj.hasOwnProperty("UNNEEDED_TC_LIST")) { // 15: unneeded-tc-list
-                TAUpdateOption.set(15, obj.UNNEEDED_TC_LIST);
+                TAUpdateOption.set(cborLtoI.unneeded-tc-list, obj.UNNEEDED_TC_LIST);
             }
             cborArray.push(TAUpdateOption);
             break;
-        // case 4: // TrustedAppDelete (this type removed and merged into `update`)
-        // purged at teep-protocol-05 draft
+        default:
+            console.log("ERR!: cannot handle this message type in buildCborArray :" + obj.TYPE);
+            return null;
     }
     return cborArray;
 }
 
 var parseCborArrayHelper = function (arr) {
-    //request cbor-ordered Array => request Obj
+    //received cbor-ordered Array (in JS Object) => key-value JS Object (to handle familiarly in tamproto)
+    // e.g. [1,"ABCDEtoken"] => { "TEEP-TYPE": 1, "TOKEN" : "ABCDEtoken"}
+    // call from api.js, not used in teep-p.js
+    
     //common order: 1->type 2->token
-    let requestObj = new Object();
-    requestObj.TYPE = arr[0];
+    let receivedObj = new Object();
+    receivedObj.TYPE = arr[0];
     //requestObj.TOKEN = arr[1]; Since protocol-05, token is one element of options array.
 
     //TODO: validate arr elements
@@ -224,54 +229,57 @@ var parseCborArrayHelper = function (arr) {
             //arr[1] as a Map
             //handle option's Map
             arr[1].forEach(function (val, key, map) {
-                requestObj[CBORLabels[key - 1]] = val;
+                receivedObj[CBORLabels[key - 1]] = val;
             });
-            if (requestObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
-                requestObj[CBORLabels[6]] = requestObj[CBORLabels[6]].toString('hex');
+            if (receivedObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
+                receivedObj[CBORLabels[6]] = receivedObj[CBORLabels[6]].toString('hex');
             }
-            if (requestObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(requestObj[CBORLabels[7]])) { // ta-list Buffer=>String
-                requestObj[CBORLabels[7]] = requestObj[CBORLabels[7]].map(function (val) {
+            if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // ta-list Buffer=>String
+                receivedObj[CBORLabels[7]] = receivedObj[CBORLabels[7]].map(function (val) {
                     return val.toString('hex');
                 });
-                requestObj.TA_LIST = requestObj[CBORLabels[7]];
+                receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
             }
-            if (requestObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(requestObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
-                requestObj[CBORLabels[14]] = requestObj[CBORLabels[14]].map(function (val) {
+            if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
+                receivedObj[CBORLabels[14]] = receivedObj[CBORLabels[14]].map(function (val) {
                     return val.toString('hex');
                 });
-                requestObj.UNNEEDED_TC_LIST = requestObj[CBORLabels[14]];
+                receivedObj.UNNEEDED_TC_LIST = receivedObj[CBORLabels[14]];
             }
-            if (requestObj.hasOwnProperty(CBORLabels[19])) {
-                requestObj.TOKEN = requestObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
+            if (receivedObj.hasOwnProperty(CBORLabels[19])) {
+                receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
             }
             break;
         case TEEP_TYPE_teep_success: // Success
             if (arr.length == 2) {
                 arr[1].forEach(function (val, key, map) {
-                    requestObj[CBORLabels[key - 1]] = val;
+                    receivedObj[CBORLabels[key - 1]] = val;
                 });
                 // for (key in arr[1]) {
                 //      requestObj[CBORLabels[key - 1]] = arr[1][key];
                 // }
-                if (requestObj.hasOwnProperty(CBORLabels[19])) {
-                    requestObj.TOKEN = requestObj[CBORLabels[19]];
+                if (receivedObj.hasOwnProperty(CBORLabels[19])) {
+                    receivedObj.TOKEN = receivedObj[CBORLabels[19]];
                 }
-                if (requestObj.hasOwnProperty(CBORLabels[18])) {
-                    requestObj.reports = requestObj[CBORLabels[18]];
+                if (receivedObj.hasOwnProperty(CBORLabels[18])) {
+                    receivedObj.reports = receivedObj[CBORLabels[18]];
                 }
             }
             break;
         case TEEP_TYPE_teep_error: // Error
             arr[1].forEach(function (val, key, map) {
-                requestObj[CBORLabels[key - 1]] = val;
+                receivedObj[CBORLabels[key - 1]] = val;
             });
-            if (requestObj.hasOwnProperty(CBORLabels[19])) {
-                requestObj.TOKEN = requestObj[CBORLabels[19]];
+            if (receivedObj.hasOwnProperty(CBORLabels[19])) {
+                receivedObj.TOKEN = receivedObj[CBORLabels[19]];
             }
-            requestObj.ERROR_CODE = arr[2];
+            receivedObj.ERROR_CODE = arr[2];
             break;
+        default:
+            console.log("ERR!: cannot handle this message type in parseCborArrayHelper :" + arr[0]);
+            return null;
     }
-    return requestObj;
+    return receivedObj;
 }
 
 var setUriDirective = function (manifest_path, uri) {
