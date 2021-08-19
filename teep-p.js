@@ -19,7 +19,7 @@ const TEEP_TYPE_teep_success = 5;
 const TEEP_TYPE_teep_error = 6;
 
 //ref. draft-ietf-teep-protocol-06#section-5
-const CBORLabels = ['supported-cipher-suites', 'challenge', 'version', 'ocsp-data', 'selected-cipher-suite',
+const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', 'ocsp-data', 'selected-cipher-suite',
     'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
     'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
@@ -40,34 +40,63 @@ var init = function () {
     return false;
 }
 
-var initMessage = function () { //generate queryRequest
-    //make secure token(TBF)
-    //record token(TBF)
-    //build queryRequest
+var initMessage = function () { //generate queryRequest Object
+    // see draft-ietf-teep-protocol-06#section-4.4
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-    //queryRequest.OPTIONS = null; // Option Field is mandatory? even no elements in options
-    queryRequest.OPTIONS = new Map();
-    queryRequest.OPTIONS.set(1, [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]); //cipher-suite as array
-    queryRequest.OPTIONS.set(3, [0]); //version
-    // @TODO move to buidCborArray func.
+    
+    queryRequest["supported-cipher-suites"] =[TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]; //cipher-suite as array
+    queryRequest["versions"] = [0]; //version as array
+    
     let initToken = new ArrayBuffer(8);
     let initTokenView = new DataView(initToken);
     initTokenView.setUint32(0, 0x77777777); //2004318071
     initTokenView.setUint32(4, 0x77777777);
-    queryRequest.OPTIONS.set(20, initToken); // The value in the TOKEN field is used to match requests to responses.
+    queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
+    
     let buf = new ArrayBuffer(3);
     let dv = new DataView(buf);
     dv.setUint8(0, 01);
     dv.setUint8(1, 02);
     dv.setUint8(2, 05);
-    queryRequest.OPTIONS.set(4, buf); //ocsp-data
-    //data-item-requested
-    queryRequest.REQUEST = 0b0010; // only request is Installed Trusted Apps lists in device
+    queryRequest["ocsp-data"] = buf; //dummy ocsp-data
     //supported-freshness-mechanisms
-    queryRequest.OPTIONS.set(21, [TEEP_FRESHNESS_NONCE]);
+    queryRequest["supported-freshness-mechanisms"]  = [TEEP_FRESHNESS_NONCE];
+    //data-item-requested
+    queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
 
     return queryRequest;
+}
+
+var parse = function (obj, req) {
+    console.log("TEEP-Protocol:parse");
+    let ret = null;
+    //check TEEP Protocol message
+    console.log(obj);
+    console.log(typeof obj);
+
+    //Cbor Scheme validation(TBF)
+
+    switch (obj.TYPE) {
+        case TEEP_TYPE_query_response: //queryResponse
+            ret = parseQueryResponse(obj, req);
+            break;
+        case TEEP_TYPE_teep_success:
+            // Success
+            parseSuccessMessage(obj);
+            return;
+            break;
+        case TEEP_TYPE_teep_error:
+            // Error
+            // parseErrorMessage(obj); @TODO
+            // return;
+            break;
+        default:
+            console.log("ERR!: cannot handle this message type :" + obj.TYPE);
+            return null;
+    }
+
+    return ret;
 }
 
 var parseQueryResponse = function (obj, req) {
@@ -109,15 +138,15 @@ var parseQueryResponse = function (obj, req) {
         //return trustedAppUpdate;
     } else {
         //build TA install message
-        trustedAppUpdate.MANIFEST_LIST = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
+        trustedAppUpdate["manifest-list"] = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
         //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
         //embedding static SUIT CBOR content
         //let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
         //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
 
         //override URI in SUIT manifest and embed 
-        trustedAppUpdate.MANIFEST_LIST.push(setUriDirective("./suit_manifest_expT.cbor", "https://tam-distrubute-point.example.com/"));
-        console.log(typeof trustedAppUpdate.MANIFEST_LIST[0]);
+        trustedAppUpdate["manifest-list"].push(setUriDirective("./TAs/suit_manifest_expX.cbor", "https://tam-distrubute-point.example.com/"));
+        console.log(typeof trustedAppUpdate["manifest-list"][0]);
     }
 
     if (typeof obj.UNNEEDED_TC_LIST !== 'undefined') {
@@ -147,63 +176,34 @@ var parseSuccessMessage = function (obj) {
     return;
 }
 
-var parse = function (obj, req) {
-    console.log("TEEP-Protocol:parse");
-    let ret = null;
-    //check TEEP Protocol message
-    console.log(obj);
-    console.log(typeof obj);
-
-    //Cbor Scheme validation(TBF)
-
-    switch (obj.TYPE) {
-        case TEEP_TYPE_query_response: //queryResponse
-            ret = parseQueryResponse(obj, req);
-            break;
-        case TEEP_TYPE_teep_success:
-            // Success
-            parseSuccessMessage(obj);
-            return;
-            break;
-        case TEEP_TYPE_teep_error:
-            // Error
-            // parseErrorMessage(obj); @TODO
-            // return;
-            break;
-        default:
-            console.log("ERR!: cannot handle this message type :" + obj.TYPE);
-            return null;
-    }
-
-    return ret;
-}
-
 var buildCborArray = function (obj) {
     //responseObj => cbor-ordered Array
     //common order: 1->type 2->token
     let cborArray = [obj.TYPE];
     switch (obj.TYPE) {
         case TEEP_TYPE_query_request: // QueryRequest
-            if (obj.OPTIONS == null) {
-                obj.OPTIONS = new cbor.Map();
-            }
-            cborArray.push(obj.OPTIONS); // option is mandatory field even though no elements.
-            cborArray.push(obj.REQUEST); // mandatory
-
+            let options = new Map(); // option is mandatory field even though no elements.
+            CBORLabels.forEach((key,idx)=>{
+                if(obj.hasOwnProperty(key)){
+                    options.set(idx+1,obj[key]);
+                }
+            });
+            cborArray.push(options); 
+            cborArray.push(obj["data-item-requested"]); // mandatory
+            console.log(obj);
+            console.log(cborArray);
             break;
         case TEEP_TYPE_update: // TrustedAppUpdate
             console.log(obj);
             let TAUpdateOption = new cbor.Map();
-            if (obj.hasOwnProperty("MANIFEST_LIST")) { // 10: manifest-list (ref.CBORLabels)
-                TAUpdateOption.set(cborLtoI['manifest-list'], obj.MANIFEST_LIST);
+            if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
+                TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
             }
-            TAUpdateOption.set(cborLtoI.token, obj.TOKEN); // 20: token * this token is not neccessary
+            TAUpdateOption.set(cborLtoI['token'], obj.TOKEN); // 20: token * this token is not neccessary
             if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
-                TAUpdateOption.set(cborLtoI.tc-list, obj.TC_LIST);
+                TAUpdateOption.set(cborLtoI['tc-list'], obj.TC_LIST);
             }
-            if (obj.hasOwnProperty("UNNEEDED_TC_LIST")) { // 15: unneeded-tc-list
-                TAUpdateOption.set(cborLtoI.unneeded-tc-list, obj.UNNEEDED_TC_LIST);
-            }
+            // * $$update-extensions and * $$teep-option-extensions added if needed.
             cborArray.push(TAUpdateOption);
             break;
         default:

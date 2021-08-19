@@ -2,9 +2,6 @@
 - This is an [IETF TEEP](https://github.com/ietf-teep) prototype implementation.
 - tamproto provides TAM server functions. Not covering device side (e.g TEEP Broker, TEEP Agent)
 
-## Requirement and Supported Environment
-- Ubuntu
-
 ## Launch
 ### with Docker (Recommended)
 + Build docker image by ``docker-compose up``
@@ -17,7 +14,7 @@
 ## API Endpoint
 - tamproto has the API endpoints in   
 ``http://<Machine HostIP>:8888/api/tam_cbor`` (CBOR)  
-``http://<Machine HostIP>:8888/api/tam_cose`` (COSE, TBF)  
+``http://<Machine HostIP>:8888/api/tam_cose`` (COSE, To Be Implemented)  
 - These endpoints accept by HTTP POST method.
 - tamproto exposes port 8888 (HTTP) and 8433 (HTTPS)
 - Keys and certificates for TLS are stored in ``key`` directory.
