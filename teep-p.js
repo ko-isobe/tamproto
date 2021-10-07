@@ -141,11 +141,11 @@ var parseQueryResponse = function (obj, req) {
         trustedAppUpdate["manifest-list"] = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
         //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
         //embedding static SUIT CBOR content
-        //let sampleSuitContents = fs.readFileSync('./TAs/suit_manifest_exp1.cbor');
-        //trustedAppUpdate.MANIFEST_LIST.push(sampleSuitContents);
+        let sampleSuitContents = fs.readFileSync('./TAs/integrated-payload-manifest.cbor');
+        trustedAppUpdate["manifest-list"].push(sampleSuitContents);
 
         //override URI in SUIT manifest and embed 
-        trustedAppUpdate["manifest-list"].push(setUriDirective("./TAs/suit_manifest_expX.cbor", "https://tam-distrubute-point.example.com/"));
+        //trustedAppUpdate["manifest-list"].push(setUriDirective("./TAs/suit_manifest_expX.cbor", "https://tam-distrubute-point.example.com/"));
         console.log(typeof trustedAppUpdate["manifest-list"][0]);
     }
 
