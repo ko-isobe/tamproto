@@ -176,8 +176,8 @@ router.get('/key_detail', function (req, res) {
         return;
     }
     promise.then(function (result) {
-        console.log(result);
-        res.locals.ret = JSON.stringify(result, null, '\t');
+        console.log(result.toJSON(true));
+        res.locals.ret = JSON.stringify(result.toJSON(true),null,'\t'); //disclose private key
         res.render("./keydetail.ejs");
     }, function (err) {
         console.log(err);
