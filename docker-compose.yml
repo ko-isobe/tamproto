@@ -4,7 +4,7 @@ version: '2'
 services: 
     tam_api:
         build: .
-        command: node app.js
+        command: node --trace-warnings app.js
         ports: 
             - "8888:8888"
             - "8443:8443"

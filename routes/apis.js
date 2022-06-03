@@ -11,6 +11,7 @@ var jose = require('node-jose');
 var cbor = require('cbor');
 var cose = require('cose-js');
 var fs = require('fs');
+require('express-async-errors');
 var keyManager = require('../keymanager.js');
 //var nconf = require('nconf');
 const { promiseImpl } = require('ejs');
@@ -183,8 +184,9 @@ router.post('/tam_cose', function (req, res, next) {
       'Referrer-Policy': 'no-referrer'
    });
 
-   // @TODO switch using keyManager
-   let TeePubKeyObj = JSON.parse(tee_pubkey.toString('utf8'));
+   //retrieve TAM private key
+   let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
+   let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
 
    new Promise(function (resolve, reject) {
       if (req.headers['content-length'] != 0) {
@@ -204,6 +206,7 @@ router.post('/tam_cose', function (req, res, next) {
          //console.log(ret);
          let cborResponseArray = teepP.buildCborArray(ret);
          console.log(cborResponseArray);
+         console.log(TamKeyObj);
          let plainPayload = cbor.encode(cborResponseArray);
          let headers = {
             'p': { 'alg': 'ES256' },
@@ -211,7 +214,7 @@ router.post('/tam_cose', function (req, res, next) {
          };
          let signer = {
             'key': {
-               'd': Buffer.from(TeePubKeyObj.d, 'base64') // TAM Priv Key
+               'd': Buffer.from(TamKeyObj.d, 'base64')
             }
          };
          return cose.sign.create(headers, plainPayload, signer);
@@ -226,6 +229,58 @@ router.post('/tam_cose', function (req, res, next) {
       return;
    });
    return;
+});
+
+//COSE Sign verify test
+//This is a utilllity API. not defined in TEEP specs.
+router.post('/cose_verify', async function (req, res, next) {
+   // check POST content
+   console.log("Access from: " + req.ip);
+   console.log(req.headers);
+   console.log(req.body);
+   let ret = null;
+
+   //retrieve TEE public key
+   let TeeKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
+
+   //let promise = new Promise((resolve, reject) => {
+   try {
+      // verify
+      // key loading          //const p = keyReload();
+      let verifyKey = {
+         'key': {
+            'x': Buffer.from(TeeKeyObj.x, 'base64'),
+            'y': Buffer.from(TeeKeyObj.y, 'base64')
+         }
+      };
+      // await cose.sign.verify(req.body, verifyKey).then((buf) => {
+      //    console.log(buf.toString('utf8'));
+      //    parsedCbor = cbor.decodeFirstSync(buf);
+      //    console.log(parsedCbor);
+      //    res.status(200);
+      //    res.end();
+      //    resolve(parsedCbor);
+      // });
+      const buf = await cose.sign.verify(req.body, verifyKey);
+      console.log('Verified message: ' + buf.toString('utf8'));
+      //resolve(buf);
+      //console.log(x);
+      res.send(buf);
+      res.end();
+   } catch (e) {
+      console.log("Cbor parse error:" + e);
+      res.status(400);
+      //reject(e);
+      return;
+   }
+   // });
+   // promise.then(function (x) {
+   // console.log(x);
+   // res.send(x);
+   // res.end();
+   return;
+   //});
+
 });
 
 let signAndEncrypt = function (data) {

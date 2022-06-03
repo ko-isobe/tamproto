@@ -1,8 +1,8 @@
 {
   "key": {
-    "TAM_priv": "test-jw_tsm_identity_private_tam-mytam-private.jwk",
-    "TAM_pub": "test-jw_tsm_identity_tam-mytam-public.jwk",
-    "TEE_priv": "teep.jwk",
-    "TEE_pub": "teep.jwk"
+    "TAM_priv": "teep_ecP256.jwk",
+    "TAM_pub": "teep_ecP256.jwk",
+    "TEE_priv": "teep_ecP256.jwk",
+    "TEE_pub": "teep_agent_prime256v1_pub.pem"
   }
 }
