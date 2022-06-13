@@ -35,7 +35,7 @@ router.get('/', function (req, res, next) {
    res.send(param);
 });
 
-let teepImplHandler = function (req, body) {
+let teepImplHandler = async function (req, body) {
    // See teep-protocol-06#Section 6.1
    // Pass the request to teep-p.js and get the reseponse.
    let ret = null;
@@ -43,12 +43,12 @@ let teepImplHandler = function (req, body) {
       //body is empty
       console.log("TAM API launch");
       //Call ProcessConnect API
-      ret = teepP.initMessage();
+      ret = await teepP.initMessage();
       return ret;
    } else {
       console.log("TAM ProcessTeepMessage instance");
       //Call ProcessTeepMessage API
-      ret = teepP.parse(body, req);
+      ret = await teepP.parse(body, req);
       console.log("TAM ProcessTeepMessage response");
       console.log(ret);
       if (ret == null) {
@@ -168,7 +168,7 @@ router.post('/tam_cbor', checkContentType, function (req, res, next) {
 });
 
 //COSE (with sign)　@TODO
-router.post('/tam_cose', function (req, res, next) {
+router.post('/tam_cose', async function (req, res, next) {
    // check POST content
    console.log("Access from: " + req.ip);
    console.log(req.headers);

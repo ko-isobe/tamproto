@@ -9,6 +9,7 @@ const app = require('./app');
 const cbor = require('cbor');
 const fs = require('fs');
 const { request } = require('./app');
+const tokenManager = require('./tokenmanager');
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 //ref. draft-ietf-teep-protocol-05#appendix-C
@@ -40,7 +41,7 @@ var init = function () {
     return false;
 }
 
-var initMessage = function () { //generate queryRequest Object
+var initMessage = async function () { //generate queryRequest Object
     // see draft-ietf-teep-protocol-06#section-4.4
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
@@ -49,9 +50,10 @@ var initMessage = function () { //generate queryRequest Object
     queryRequest["versions"] = [0]; //version as array
     
     let initToken = new ArrayBuffer(8);
-    let initTokenView = new DataView(initToken);
-    initTokenView.setUint32(0, 0x77777777); //2004318071
-    initTokenView.setUint32(4, 0x77777777);
+    // let initTokenView = new DataView(initToken);
+    // initTokenView.setUint32(0, 0x77777777); //2004318071
+    // initTokenView.setUint32(4, 0x77777777);
+    initToken = await tokenManager.generateToken();
     queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
     
     let buf = new ArrayBuffer(3);
@@ -68,7 +70,7 @@ var initMessage = function () { //generate queryRequest Object
     return queryRequest;
 }
 
-var parse = function (obj, req) {
+var parse = async function (obj, req) {
     console.log("TEEP-Protocol:parse");
     let ret = null;
     //check TEEP Protocol message
@@ -79,7 +81,7 @@ var parse = function (obj, req) {
 
     switch (obj.TYPE) {
         case TEEP_TYPE_query_response: //queryResponse
-            ret = parseQueryResponse(obj, req);
+            ret = await parseQueryResponse(obj, req);
             break;
         case TEEP_TYPE_teep_success:
             // Success
@@ -99,10 +101,14 @@ var parse = function (obj, req) {
     return ret;
 }
 
-var parseQueryResponse = function (obj, req) {
+var parseQueryResponse = async function (obj, req) {
     console.log("*" + arguments.callee.name);
     //verify token(TBF)
     console.log(obj.TOKEN);
+    let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+    if(!isValidToken){
+        console.log("ERR! Claimed token is not valid.")
+    }
     //record information(TBF)
     console.log(obj.TA_LIST);
     //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
@@ -123,12 +129,13 @@ var parseQueryResponse = function (obj, req) {
     //trustedAppUpdate.TOKEN = 2004318072;
     // token is bstr @TODO move to buidCborArray func.
     trustedAppUpdate.TOKEN = new ArrayBuffer(8); //token => bstr .size (8..64)
-    let tokenVal = "ABA1A2A3A4A5A6A7"; // hex 
-    let tokenView = new DataView(trustedAppUpdate.TOKEN);
-    for (let i = 0; i < (tokenVal.length / 8); i++) {
-        //console.log(tokenVal.slice(8 * i, 8 * (i + 1)));
-        tokenView.setUint32(i * 4, '0x' + tokenVal.slice(8 * i, 8 * (i + 1)));
-    }
+    // let tokenVal = "ABA1A2A3A4A5A6A7"; // hex 
+    // let tokenView = new DataView(trustedAppUpdate.TOKEN);
+    // for (let i = 0; i < (tokenVal.length / 8); i++) {
+    //     //console.log(tokenVal.slice(8 * i, 8 * (i + 1)));
+    //     tokenView.setUint32(i * 4, '0x' + tokenVal.slice(8 * i, 8 * (i + 1)));
+    // }
+    trustedAppUpdate.TOKEN = await tokenManager.generateToken();
 
     // already installed TA?
     if (installed) {

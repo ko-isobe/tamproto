@@ -28,6 +28,7 @@ var upload = multer({ storage: storage });
 var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
 var keyManager = require('../keymanager.js');
+var tokenManager = require('../tokenmanager.js');
 //var nconf = require('nconf');
 //nconf.use('file', { file: './config.json' });
 //nconf.load();
@@ -183,6 +184,14 @@ router.get('/key_detail', function (req, res) {
         console.log(err);
         res.render("./keydetail.ejs");
     });
+});
+
+// Token Table UI
+router.get('/token', async function(req,res){
+    let obj = await tokenManager.getAllTokens();
+    console.log(obj);
+    res.locals.tokens = obj;
+    res.render("./token.ejs");
 });
 
 module.exports = router;

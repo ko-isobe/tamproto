@@ -30,13 +30,13 @@
 </style>
 
 <body>
-    <h1>Key Management UI</h1>
+    <h1>🔑Key Management UI&nbsp;<span style="font-size: 0.5em;"><a href="./keys">🔄Refresh</a></span></h1>
     <hr>
     <!-- <%= files %> -->
     <h2>Keys</h2>
     <table>
         <tr>
-            <th>File Name</th>
+            <th>Key File Name</th>
             <th>Detail</th>
             <th>Download</th>
             <th>Delete</th>
@@ -44,9 +44,9 @@
         <% files.forEach(function(value) { %>
         <tr>
             <td><%= value.name %></td>
-            <td><a href="<%= fullURL+'/panel/key_detail?keyname='+value.name %>">Show</a></td>
-            <td><a href="<%= fullURL+'/key/'+value.name %>">Get</a></td>
-            <td><a href="<%= fullURL+'/panel/key_delete?keyname='+value.name %>">Delete</a></td>
+            <td><a href="<%= fullURL+'/panel/key_detail?keyname='+value.name %>">📃</a></td>
+            <td><a href="<%= fullURL+'/key/'+value.name %>">📥</a></td>
+            <td><a href="<%= fullURL+'/panel/key_delete?keyname='+value.name %>">❌</a></td>
         </tr>
         <% }); %>
         <!--
