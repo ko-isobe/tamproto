@@ -3,6 +3,6 @@
     "TAM_priv": "teep_ecP256.jwk",
     "TAM_pub": "teep_ecP256.jwk",
     "TEE_priv": "teep_ecP256.jwk",
-    "TEE_pub": "teep_agent_prime256v1_pub.pem"
+    "TEE_pub": "teep_agent_prime256v1_pub.jwk"
   }
 }

@@ -189,7 +189,6 @@ router.get('/key_detail', function (req, res) {
 // Token Table UI
 router.get('/token', async function(req,res){
     let obj = await tokenManager.getAllTokens();
-    console.log(obj);
     res.locals.tokens = obj;
     res.render("./token.ejs");
 });
