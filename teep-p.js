@@ -19,13 +19,14 @@ const TEEP_TYPE_update = 3;
 const TEEP_TYPE_teep_success = 5;
 const TEEP_TYPE_teep_error = 6;
 
-//ref. draft-ietf-teep-protocol-06#section-5
-const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', 'ocsp-data', 'selected-cipher-suite',
+//ref. draft-ietf-teep-protocol-08#section-6 , ocsp-data is obsoleted.
+const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 'selected-cipher-suite',
     'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
     'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
-const cborLtoI = CBORLabels.reduce(function(obj,key,idx){return Object.assign(obj,{[key]:idx+1})},{}); //swap key,value
+const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
 console.log(cborLtoI);
+
 //ref. draft-ietf-teep-protocol-06#section-7
 //cipher-suites
 const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1;
@@ -36,6 +37,28 @@ const TEEP_FRESHNESS_NONCE = 0;
 const TEEP_FRESHNESS_TIMESTAMP = 1;
 const TEEP_FRESHNESS_EPOCH_ID = 2;
 
+//ref. draft-ietf-teep-protocol-08#section-4.6
+const TEEP_ERR_PERMANENT_ERROR = 1;
+const TEEP_ERR_UNSUPPORTED_EXTENSION = 2;
+const TEEP_ERR_UNSUPPORTED_FRESHNESS_MECHANISMS = 3;
+const TEEP_ERR_UNSUPPORTED_MSG_VERSION = 4;
+const TEEP_ERR_UNSUPPORTED_CIPHER_SUITES = 5;
+const TEEP_ERR_BAD_CERTIFICATE = 6;
+const TEEP_ERR_CERTIFICATE_EXPIRED = 9;
+const TEEP_ERR_TEMPORARY_ERROR = 10;
+const TEEP_ERR_MANIFEST_PROCESSING_FAILED = 17;
+
+//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
+const COSE_alg_es256 = -7;
+const COSE_alg_eddsa = -8;
+const COSE_alg_ps256 = -37;
+const COSE_alg_ps384 = -38;
+const COSE_alg_ps512 = -39;
+const COSE_alg_rsa_oaep_256 = -41;
+const COSE_alg_rsa_oaep_512 = -42;
+const COSE_alg_accm_16_64_128 = 10;
+const COSE_alg_hmac_256 = 5;
+
 var init = function () {
     console.log("called TEEP-P init");
     return false;
@@ -45,25 +68,22 @@ var initMessage = async function () { //generate queryRequest Object
     // see draft-ietf-teep-protocol-06#section-4.4
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
-    
-    queryRequest["supported-cipher-suites"] =[TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]; //cipher-suite as array
+
+    queryRequest["supported-cipher-suites"] = [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]; //cipher-suite as array
     queryRequest["versions"] = [0]; //version as array
-    
+
     let initToken = new ArrayBuffer(8);
     // let initTokenView = new DataView(initToken);
     // initTokenView.setUint32(0, 0x77777777); //2004318071
     // initTokenView.setUint32(4, 0x77777777);
     initToken = await tokenManager.generateToken();
     queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
-    
-    let buf = new ArrayBuffer(3);
-    let dv = new DataView(buf);
-    dv.setUint8(0, 01);
-    dv.setUint8(1, 02);
-    dv.setUint8(2, 05);
-    queryRequest["ocsp-data"] = buf; //dummy ocsp-data
+
     //supported-freshness-mechanisms
-    queryRequest["supported-freshness-mechanisms"]  = [TEEP_FRESHNESS_NONCE];
+    queryRequest["supported-freshness-mechanisms"] = [TEEP_FRESHNESS_NONCE];
+    //supported-cipher-suites
+    let suite = [COSE_alg_es256, null, null];
+    queryRequest["supported-cipher-suites"] = [suite]
     //data-item-requested
     queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
 
@@ -85,13 +105,13 @@ var parse = async function (obj, req) {
             break;
         case TEEP_TYPE_teep_success:
             // Success
-            parseSuccessMessage(obj);
+            await parseSuccessMessage(obj);
             return;
             break;
         case TEEP_TYPE_teep_error:
             // Error
-            // parseErrorMessage(obj); @TODO
-            // return;
+            await parseErrorMessage(obj);
+            return;
             break;
         default:
             console.log("ERR!: cannot handle this message type :" + obj.TYPE);
@@ -103,20 +123,25 @@ var parse = async function (obj, req) {
 
 var parseQueryResponse = async function (obj, req) {
     console.log("*" + arguments.callee.name);
+    // selected version
+    if (typeof obj.SELECTED_VERSION !== 'undefined') {
+        console.log("INFO: Selected Version is " + obj.SELECTED_VERSION);
+        // check the version
+    }
+
     //verify token(TBF)
     console.log(obj.TOKEN);
     let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
-    if(!isValidToken){
+    if (!isValidToken) {
         console.log("ERR! Claimed token is not valid.")
     }
-    //record information(TBF)
+
     console.log(obj.TA_LIST);
     //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
     //let deleteFlg = req.path.includes("delete");
     console.log(obj.UNNEEDED_TC_LIST);
     //console.log(deleteFlg);
 
-    //judge?
     let installed = false;
     if (Array.isArray(obj.TA_LIST)) {
         obj.TA_LIST.filter(x => {
@@ -124,17 +149,24 @@ var parseQueryResponse = async function (obj, req) {
         });
     }
 
+    // ciphersuite
+    if (typeof obj.SELECTED_CIPHER_SUITE !== 'undefined') {
+        console.log("INFO: Selected Cipher Suite is " + obj.SELECTED_CIPHER_SUITE);
+        // check whether the claimed suite is available in TAM
+        // set the algorithm and key according to the claimed suite
+    }
+
+    // attestation
+    if (typeof obj.EVIDENCE_FORMAT !== 'undefined') {
+        console.log("INFO: Evidence format is " + obj.EVIDENCE_FORMAT);
+    }
+    if (typeof obj.EVIDENCE !== 'undefined') {
+        console.log("INFO: QueryResponse contains Evidence.");
+    }
+
+    // building the response
     let trustedAppUpdate = new Object();
     trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
-    //trustedAppUpdate.TOKEN = 2004318072;
-    // token is bstr @TODO move to buidCborArray func.
-    trustedAppUpdate.TOKEN = new ArrayBuffer(8); //token => bstr .size (8..64)
-    // let tokenVal = "ABA1A2A3A4A5A6A7"; // hex 
-    // let tokenView = new DataView(trustedAppUpdate.TOKEN);
-    // for (let i = 0; i < (tokenVal.length / 8); i++) {
-    //     //console.log(tokenVal.slice(8 * i, 8 * (i + 1)));
-    //     tokenView.setUint32(i * 4, '0x' + tokenVal.slice(8 * i, 8 * (i + 1)));
-    // }
     trustedAppUpdate.TOKEN = await tokenManager.generateToken();
 
     // already installed TA?
@@ -171,15 +203,50 @@ var parseQueryResponse = async function (obj, req) {
     return trustedAppUpdate;
 }
 
-var parseSuccessMessage = function (obj) {
+var parseSuccessMessage = async function (obj) {
     console.log("*" + arguments.callee.name);
     //verify token(TBF)
     console.log(obj.TOKEN);
-    //record information(TBF)
+    let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+    if (!isValidToken) {
+        console.log("ERR! Claimed token is not valid.")
+    }
     console.log(obj.msg);
-    if (obj.reports !== undefined) {
+    if (typeof obj.reports !== 'undefined') {
         console.log(obj.reports); // teep-protocol-04
     }
+    return;
+}
+
+var parseErrorMessage = async function (obj) {
+    console.log("*" + arguments.callee.name);
+    //verify token(TBF)
+    console.log(obj.TOKEN);
+    let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+    if (!isValidToken) {
+        console.log("ERR! Claimed token is not valid.")
+    }
+    console.log(obj.ERR_MSG);
+    if (typeof obj.reports !== 'undefined') {
+        console.log(obj.reports); // teep-protocol-04
+    }
+    // supported ciphersuites
+    if (typeof obj.SUPPORTED_CIPHER_SUITES !== 'undefined') {
+        console.log("INFO: Supported Cipher Suites are " + obj.SUPPORTED_CIPHER_SUITES);
+        // check whether the claimed suites are available in TAM
+    }
+
+    // supported freshness mechanisms
+    if (typeof obj.SUPPORTED_FRESHNESS_MECHANISMS !== 'undefined') {
+        console.log("INFO: Supported Cipher Suites are " + obj.SUPPORTED_FRESHNESS_MECHANISMS);
+        // check whether the claimed mechanisms are available in TAM
+    }
+
+    // supported version
+    if (typeof obj.VERSIONS !== 'undefined') {
+        console.log("INFO: Supported Versions are " + obj.VERSIONS);
+    }
+
     return;
 }
 
@@ -190,12 +257,12 @@ var buildCborArray = function (obj) {
     switch (obj.TYPE) {
         case TEEP_TYPE_query_request: // QueryRequest
             let options = new Map(); // option is mandatory field even though no elements.
-            CBORLabels.forEach((key,idx)=>{
-                if(obj.hasOwnProperty(key)){
-                    options.set(idx+1,obj[key]);
+            CBORLabels.forEach((key, idx) => {
+                if (obj.hasOwnProperty(key)) {
+                    options.set(idx + 1, obj[key]);
                 }
             });
-            cborArray.push(options); 
+            cborArray.push(options);
             cborArray.push(obj["data-item-requested"]); // mandatory
             console.log(obj);
             console.log(cborArray);
@@ -224,11 +291,10 @@ var parseCborArrayHelper = function (arr) {
     //received cbor-ordered Array (in JS Object) => key-value JS Object (to handle familiarly in tamproto)
     // e.g. [1,"ABCDEtoken"] => { "TEEP-TYPE": 1, "TOKEN" : "ABCDEtoken"}
     // call from api.js, not used in teep-p.js
-    
+
     //common order: 1->type 2->token
     let receivedObj = new Object();
     receivedObj.TYPE = arr[0];
-    //requestObj.TOKEN = arr[1]; Since protocol-05, token is one element of options array.
 
     //TODO: validate arr elements
     switch (arr[0]) {
@@ -256,6 +322,18 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[19])) {
                 receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
             }
+            if (receivedObj.hasOwnProperty(CBORLabels[12])) {
+                receivedObj.EVIDENCE_FORMAT = receivedObj[CBORLabels[12]]; //text
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[6])) {
+                receivedObj.EVIDENCE = receivedObj[CBORLabels[6]]; // bstr
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[4])) {
+                receivedObj.SELECTED_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[5])) {
+                receivedObj.SELECTED_VERSION = receivedObj[CBORLabels[5]]; // array
+            }
             break;
         case TEEP_TYPE_teep_success: // Success
             if (arr.length == 2) {
@@ -281,6 +359,18 @@ var parseCborArrayHelper = function (arr) {
                 receivedObj.TOKEN = receivedObj[CBORLabels[19]];
             }
             receivedObj.ERROR_CODE = arr[2];
+            if (receivedObj.hasOwnProperty(CBORLabels[0])) {
+                receivedObj.SUPPORTED_CIPHER_SUITES = receivedObj[CBORLabels[0]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[20])) {
+                receivedObj.SUPPORTED_FRESHNESS_MECHANISMS = receivedObj[CBORLabels[20]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[2])) {
+                receivedObj.VERSIONS = receivedObj[CBORLabels[2]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[18])) {
+                receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+            }
             break;
         default:
             console.log("ERR!: cannot handle this message type in parseCborArrayHelper :" + arr[0]);
