@@ -120,7 +120,7 @@ router.post('/tam', function (req, res, next) {
 });
 
 //CBOR (no encrypt and sign)
-router.post('/tam_cbor', checkContentType, function (req, res, next) {
+router.post('/tam_cbor', checkContentType, async function (req, res, next) {
    // check POST content
    console.log("Access from: " + req.ip);
    console.log(req.headers);
@@ -146,10 +146,10 @@ router.post('/tam_cbor', checkContentType, function (req, res, next) {
          return;
       }
       console.log(teepP.parseCborArray(parsedCbor));
-      ret = teepImplHandler(req, teepP.parseCborArray(parsedCbor));
+      ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
    } else {
       //Initialize TEEP-P
-      ret = teepImplHandler(req, req.body);
+      ret = await teepImplHandler(req, req.body);
    }
 
    if (ret == null) { // TAM can't handle Agent's message.
