@@ -16,11 +16,14 @@ var keyManager = require('../keymanager.js');
 //var nconf = require('nconf');
 const { promiseImpl } = require('ejs');
 const { resolve } = require('path');
+const log4js = require('log4js');
+const logger = log4js.getLogger('apis.js');
+logger.level = 'debug';
 
 const checkContentType = (req, res, next) => {
    if (req.headers['content-type'] !== "application/teep+cbor") {
-      console.log("apis.js: Inappropirate content-type request");
-      console.log(req.headers['content-type']);
+      logger.warn("apis.js: Inappropirate content-type request");
+      logger.debug(req.headers['content-type']);
       res.set(null);
       res.status(415).send('no content');
       res.end();
@@ -41,19 +44,19 @@ let teepImplHandler = async function (req, body) {
    let ret = null;
    if (req.headers['content-length'] == 0) {
       //body is empty
-      console.log("TAM API launch");
+      logger.info("TAM API launch");
       //Call ProcessConnect API
       ret = await teepP.initMessage();
       return ret;
    } else {
-      console.log("TAM ProcessTeepMessage instance");
+      logger.info("TAM ProcessTeepMessage instance");
       //Call ProcessTeepMessage API
       ret = await teepP.parse(body, req);
-      console.log("TAM ProcessTeepMessage response");
-      console.log(ret);
+      logger.info("TAM ProcessTeepMessage response");
+      logger.debug(ret);
       if (ret == null) {
          //invalid message from client device
-         console.log("WARNING: Agent may sent invalid contents. TAM responses null."); // @TODO review this message
+         logger.warn("WARNING: Agent may sent invalid contents. TAM responses null."); // @TODO review this message
       }
       return ret;
    }
@@ -74,11 +77,11 @@ let cose_handler = async function (TeePubKeyObj, req) {
          cose.sign.verify(req.body, verifyKey).then((buf) => {
             //console.log(buf.toString('utf8'));
             parsedCbor = cbor.decodeFirstSync(buf);
-            console.log(parsedCbor);
+            logger.debug(parsedCbor);
             resolve(teepImplHandler(req, teepP.parseCborArray(parsedCbor)));
          });
       } catch (e) {
-         console.log("Cbor parse error:" + e);
+         logger.error("Cbor parse error:" + e);
          res.status(400);
          res.end();
          return;
@@ -122,9 +125,9 @@ router.post('/tam', function (req, res, next) {
 //CBOR (no encrypt and sign)
 router.post('/tam_cbor', checkContentType, async function (req, res, next) {
    // check POST content
-   console.log("Access from: " + req.ip);
-   console.log(req.headers);
-   console.log(req.body);
+   logger.info("Access to tam_cbor API from: " + req.ip);
+   logger.debug(req.headers);
+   logger.debug(req.body);
    let ret = null;
    let parsedCbor = null;
 
@@ -140,12 +143,12 @@ router.post('/tam_cbor', checkContentType, async function (req, res, next) {
       try {
          parsedCbor = cbor.decodeFirstSync(req.body); // cbor=> JS Object
       } catch (e) {
-         console.log("Cbor parse error:" + e);
+         logger.error("Cbor parse error:" + e);
          res.status(400);
          res.end();
          return;
       }
-      console.log(teepP.parseCborArray(parsedCbor));
+      logger.debug(teepP.parseCborArray(parsedCbor));
       ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
    } else {
       //Initialize TEEP-P
@@ -156,11 +159,13 @@ router.post('/tam_cbor', checkContentType, async function (req, res, next) {
       res.set(null);
       res.status(204);
       res.end();
+      logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
    } else { // TAM sends valid response to Agent.
       //console.log(ret);
       let cborResponseArray = teepP.buildCborArray(ret);
       //console.log(cborResponseArray);
       res.send(cbor.encode(cborResponseArray));
+      logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
       res.end();
    }
 
@@ -170,9 +175,9 @@ router.post('/tam_cbor', checkContentType, async function (req, res, next) {
 //COSE (with sign)　@TODO
 router.post('/tam_cose', async function (req, res, next) {
    // check POST content
-   console.log("Access from: " + req.ip);
-   console.log(req.headers);
-   console.log(req.body);
+   logger.info("Access to tam_cose API from: " + req.ip);
+   logger.debug(req.headers);
+   logger.debug(req.body);
    let ret = null;
    let parsedCbor = null;
 
@@ -201,12 +206,13 @@ router.post('/tam_cose', async function (req, res, next) {
          res.set(null);
          res.status(204);
          res.end();
+         logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
          resolve("0");
       } else {
          //console.log(ret);
          let cborResponseArray = teepP.buildCborArray(ret);
-         console.log(cborResponseArray);
-         console.log(TamKeyObj);
+         logger.debug(cborResponseArray);
+         logger.debug(TamKeyObj);
          let plainPayload = cbor.encode(cborResponseArray);
          let headers = {
             'p': { 'alg': 'ES256' },
@@ -222,9 +228,10 @@ router.post('/tam_cose', async function (req, res, next) {
          //res.end();
       }
    }).then(function (buf) {
-      console.log(buf.toString('hex'));
+      logger.debug(buf.toString('hex'));
       res.send(buf);
       res.end();
+      logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
       resolve("1");
       return;
    });
@@ -235,9 +242,9 @@ router.post('/tam_cose', async function (req, res, next) {
 //This is a utilllity API. not defined in TEEP specs.
 router.post('/cose_verify', async function (req, res, next) {
    // check POST content
-   console.log("Access from: " + req.ip);
-   console.log(req.headers);
-   console.log(req.body);
+   logger.info("Access to cose_verify API from: " + req.ip);
+   logger.debug(req.headers);
+   logger.debug(req.body);
    let ret = null;
 
    //retrieve TEE public key
@@ -262,13 +269,13 @@ router.post('/cose_verify', async function (req, res, next) {
       //    resolve(parsedCbor);
       // });
       const buf = await cose.sign.verify(req.body, verifyKey);
-      console.log('Verified message: ' + buf.toString('utf8'));
+      logger.info('Verified message: ' + buf.toString('utf8'));
       //resolve(buf);
       //console.log(x);
       res.send(buf);
       res.end();
    } catch (e) {
-      console.log("Cbor parse error:" + e);
+      logger.debug("Cbor parse error:" + e);
       res.status(400);
       //reject(e);
       return;
@@ -288,15 +295,15 @@ let signAndEncrypt = function (data) {
       // @TODO switch using keyManager
       jose.JWS.createSign({ format: "flattened" }, jwk_tee_privkey).update(JSON.stringify(data)).final().then(
          function (result) {
-            console.log(result);
-            console.log(typeof result);
+            logger.debug(result);
+            logger.debug(typeof result);
             //signedRequest = result;
             // @TODO switch using keyManager
             jose.JWE.createEncrypt({ format: "flattened", fields: { alg: 'RSA1_5' } }, jwk_tam_privkey)
                .update(JSON.stringify(result))
                .final().then(
                   async function (ret) {
-                     console.log(ret);
+                     logger.debug(ret);
                      val = ret;
                      //return ret;
                      resolve(ret);
@@ -318,7 +325,7 @@ router.get('/testgen', function (req, res) {
    //signAndEncrypt(sampleRequest);
    signAndEncrypt(sampleRequest).then((val) => {
       res.status(200);
-      console.log(val)
+      logger.debug(val)
       res.send(val);
       res.end();
    });
@@ -376,7 +383,7 @@ router.get('/testgen_cose', function (req, res) {
       }
    };
    cose.sign.create(headers, plainPayload, signer).then((buf) => {
-      console.log(buf.toString('hex'));
+      logger.debug(buf.toString('hex'));
       res.send(buf);
       res.end();
       return;
@@ -386,7 +393,7 @@ router.get('/testgen_cose', function (req, res) {
 router.get('/keycheck', function (req, res) {
    //console.log(keyManager.config);
    let tamPriv = keyManager.getKeyBinary("TAM_priv");
-   console.log(tamPriv);
+   logger.debug(tamPriv);
    res.send("").end();
    return;
 });

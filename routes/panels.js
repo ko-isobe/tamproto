@@ -29,6 +29,10 @@ var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
 var keyManager = require('../keymanager.js');
 var tokenManager = require('../tokenmanager.js');
+
+const log4js = require('log4js');
+const logger = log4js.getLogger('panels.js');
+logger.level = 'debug';
 //var nconf = require('nconf');
 //nconf.use('file', { file: './config.json' });
 //nconf.load();
@@ -42,7 +46,7 @@ router.get('/', function (req, res, next) {
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
-        console.log(fileList);
+        logger.debug(fileList);
         res.locals.files = fileList;
         res.render("./index.ejs");
     });
@@ -63,7 +67,7 @@ router.post('/upload', upload.single('file'), function (req, res, next) {
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
-        console.log(fileList);
+        logger.debug(fileList);
         res.locals.files = fileList;
         res.render("./index.ejs");
     });
@@ -73,14 +77,14 @@ router.get('/delete', function (req, res) {
     var delTAname = req.query.taname;
     if (delTAname != '' && fs.existsSync('./TAs/' + delTAname)) {
         fs.unlinkSync('./TAs/' + delTAname);
-        console.log("deleted TA:" + delTAname);
+        logger.info("deleted TA:" + delTAname);
     }
 
     res.locals.fullURL = req.protocol + '://' + req.get('host');
     fs.readdir('./TAs', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
-        console.log(fileList);
+        logger.debug(fileList);
         res.locals.files = fileList;
         res.render("./index.ejs");
     });
@@ -104,7 +108,7 @@ const getKeysList = (req, res, next) => {
     fs.readdir('./key', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
         fileList = files;
-        console.log(fileList);
+        logger.debug(fileList);
         res.locals.files = fileList;
         next();
     });
@@ -125,7 +129,7 @@ router.get('/key_delete', getKeysList, function (req, res) {
     var delKeyName = req.query.keyname;
     if (delKeyName != '' && fs.existsSync('./key/' + delKeyName)) {
         fs.unlinkSync('./key/' + delKeyName);
-        console.log("deleted Key:" + delKeyName);
+        logger.info("deleted Key:" + delKeyName);
     }
     res.render("./keymanage.ejs");
 });
@@ -144,7 +148,6 @@ router.post('/key_config', getKeysList, function (req, res) {
     keyManager.setKeyName("TEE_pub", req.body.tee_pub);
     keyManager.saveConfig();
     keyManager.loadKeyBinary();
-    console.log("==");
     //load key config
     let configs = keyManager.getAllKeyName();
     res.locals.key_TAMpriv = configs.TAM_priv;
@@ -161,33 +164,33 @@ router.get('/key_detail', function (req, res) {
     let promise = null;
     if (keyName != '' && fs.existsSync('./key/' + keyName)) {
         //fs.unlinkSync('./key/'+KeyName);
-        console.log("detailed Key:" + keyName);
+        logger.info("detailed Key:" + keyName);
         let content = new String();
         content = fs.readFileSync('./key/' + keyName, 'utf8');
-        console.log(content);
+        logger.debug(content);
         if (keyName.endsWith('.pem')) {
             promise = jose.JWK.asKey(content, "pem");
         } else {
             promise = jose.JWK.asKey(content);
         }
     } else {
-        console.log("No key found or invalid parameter");
+        logger.error("No key found or invalid parameter");
         res.locals.err = "No key found or invalid parameter";
         res.render("./keydetail.ejs");
         return;
     }
     promise.then(function (result) {
-        console.log(result.toJSON(true));
-        res.locals.ret = JSON.stringify(result.toJSON(true),null,'\t'); //disclose private key
+        logger.debug(result.toJSON(true));
+        res.locals.ret = JSON.stringify(result.toJSON(true), null, '\t'); //disclose private key
         res.render("./keydetail.ejs");
     }, function (err) {
-        console.log(err);
+        logger.error(err);
         res.render("./keydetail.ejs");
     });
 });
 
 // Token Table UI
-router.get('/token', async function(req,res){
+router.get('/token', async function (req, res) {
     let obj = await tokenManager.getAllTokens();
     res.locals.tokens = obj;
     res.render("./token.ejs");

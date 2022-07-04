@@ -10,6 +10,10 @@ const cbor = require('cbor');
 const fs = require('fs');
 const { request } = require('./app');
 const tokenManager = require('./tokenmanager');
+const log4js = require('log4js');
+const logger = log4js.getLogger('teep-p.js');
+logger.level = 'debug';
+
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 
 //ref. draft-ietf-teep-protocol-05#appendix-C
@@ -25,7 +29,7 @@ const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 's
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
     'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
 const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
-console.log(cborLtoI);
+logger.debug('TEEP Const Values array set as:', cborLtoI);
 
 //ref. draft-ietf-teep-protocol-06#section-7
 //cipher-suites
@@ -60,7 +64,7 @@ const COSE_alg_accm_16_64_128 = 10;
 const COSE_alg_hmac_256 = 5;
 
 var init = function () {
-    console.log("called TEEP-P init");
+    logger.info("called TEEP-P init");
     return false;
 }
 
@@ -91,11 +95,11 @@ var initMessage = async function () { //generate queryRequest Object
 }
 
 var parse = async function (obj, req) {
-    console.log("TEEP-Protocol:parse");
+    logger.info("TEEP-Protocol:parse");
     let ret = null;
     //check TEEP Protocol message
-    console.log(obj);
-    console.log(typeof obj);
+    logger.debug(obj);
+    logger.debug(typeof obj);
 
     //Cbor Scheme validation(TBF)
 
@@ -114,7 +118,7 @@ var parse = async function (obj, req) {
             return;
             break;
         default:
-            console.log("ERR!: cannot handle this message type :" + obj.TYPE);
+            logger.error("ERR!: cannot handle this message type :" + obj.TYPE);
             return null;
     }
 
@@ -122,24 +126,24 @@ var parse = async function (obj, req) {
 }
 
 var parseQueryResponse = async function (obj, req) {
-    console.log("*" + arguments.callee.name);
+    logger.info("*" + arguments.callee.name);
     // selected version
     if (typeof obj.SELECTED_VERSION !== 'undefined') {
-        console.log("INFO: Selected Version is " + obj.SELECTED_VERSION);
+        logger.info("Selected Version is " + obj.SELECTED_VERSION);
         // check the version
     }
 
     //verify token(TBF)
-    console.log(obj.TOKEN);
+    logger.debug(obj.TOKEN);
     let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
     if (!isValidToken) {
-        console.log("ERR! Claimed token is not valid.")
+        logger.error("Claimed token is not valid.")
     }
 
-    console.log(obj.TA_LIST);
+    logger.debug(obj.TA_LIST);
     //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
     //let deleteFlg = req.path.includes("delete");
-    console.log(obj.UNNEEDED_TC_LIST);
+    logger.debug(obj.UNNEEDED_TC_LIST);
     //console.log(deleteFlg);
 
     let installed = false;
@@ -151,17 +155,17 @@ var parseQueryResponse = async function (obj, req) {
 
     // ciphersuite
     if (typeof obj.SELECTED_CIPHER_SUITE !== 'undefined') {
-        console.log("INFO: Selected Cipher Suite is " + obj.SELECTED_CIPHER_SUITE);
+        logger.info("Selected Cipher Suite is " + obj.SELECTED_CIPHER_SUITE);
         // check whether the claimed suite is available in TAM
         // set the algorithm and key according to the claimed suite
     }
 
     // attestation
     if (typeof obj.EVIDENCE_FORMAT !== 'undefined') {
-        console.log("INFO: Evidence format is " + obj.EVIDENCE_FORMAT);
+        logger.info("Evidence format is " + obj.EVIDENCE_FORMAT);
     }
     if (typeof obj.EVIDENCE !== 'undefined') {
-        console.log("INFO: QueryResponse contains Evidence.");
+        logger.info("QueryResponse contains Evidence.");
     }
 
     // building the response
@@ -185,7 +189,7 @@ var parseQueryResponse = async function (obj, req) {
 
         //override URI in SUIT manifest and embed 
         //trustedAppUpdate["manifest-list"].push(setUriDirective("./TAs/suit_manifest_expX.cbor", "https://tam-distrubute-point.example.com/"));
-        console.log(typeof trustedAppUpdate["manifest-list"][0]);
+        logger.debug(typeof trustedAppUpdate["manifest-list"][0]);
     }
 
     if (typeof obj.UNNEEDED_TC_LIST !== 'undefined') {
@@ -197,54 +201,54 @@ var parseQueryResponse = async function (obj, req) {
         dv.setUint8(1, 02);
         dv.setUint8(2, 03);
         trustedAppUpdate.UNNEEDED_TC_LIST.push([buf]); // SUIT_Component_Identifier(bstr)
-        console.log(typeof trustedAppUpdate.UNNEEDED_TC_LIST[0]);
+        logger.debug(typeof trustedAppUpdate.UNNEEDED_TC_LIST[0]);
     }
 
     return trustedAppUpdate;
 }
 
 var parseSuccessMessage = async function (obj) {
-    console.log("*" + arguments.callee.name);
+    logger.info("*" + arguments.callee.name);
     //verify token(TBF)
-    console.log(obj.TOKEN);
+    logger.debug(obj.TOKEN);
     let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
     if (!isValidToken) {
-        console.log("ERR! Claimed token is not valid.")
+        logger.error("ERR! Claimed token is not valid.")
     }
-    console.log(obj.msg);
+    logger.debug(obj.msg);
     if (typeof obj.reports !== 'undefined') {
-        console.log(obj.reports); // teep-protocol-04
+        logger.debug(obj.reports); // teep-protocol-04
     }
     return;
 }
 
 var parseErrorMessage = async function (obj) {
-    console.log("*" + arguments.callee.name);
+    logger.info("*" + arguments.callee.name);
     //verify token(TBF)
-    console.log(obj.TOKEN);
+    logger.debug(obj.TOKEN);
     let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
     if (!isValidToken) {
-        console.log("ERR! Claimed token is not valid.")
+        logger.error("Claimed token is not valid.")
     }
-    console.log(obj.ERR_MSG);
+    logger.debug(obj.ERR_MSG);
     if (typeof obj.reports !== 'undefined') {
-        console.log(obj.reports); // teep-protocol-04
+        logger.debug(obj.reports); // teep-protocol-04
     }
     // supported ciphersuites
     if (typeof obj.SUPPORTED_CIPHER_SUITES !== 'undefined') {
-        console.log("INFO: Supported Cipher Suites are " + obj.SUPPORTED_CIPHER_SUITES);
+        logger.info("Supported Cipher Suites are " + obj.SUPPORTED_CIPHER_SUITES);
         // check whether the claimed suites are available in TAM
     }
 
     // supported freshness mechanisms
     if (typeof obj.SUPPORTED_FRESHNESS_MECHANISMS !== 'undefined') {
-        console.log("INFO: Supported Cipher Suites are " + obj.SUPPORTED_FRESHNESS_MECHANISMS);
+        logger.info("Supported Cipher Suites are " + obj.SUPPORTED_FRESHNESS_MECHANISMS);
         // check whether the claimed mechanisms are available in TAM
     }
 
     // supported version
     if (typeof obj.VERSIONS !== 'undefined') {
-        console.log("INFO: Supported Versions are " + obj.VERSIONS);
+        logger.info("Supported Versions are " + obj.VERSIONS);
     }
 
     return;
@@ -264,11 +268,11 @@ var buildCborArray = function (obj) {
             });
             cborArray.push(options);
             cborArray.push(obj["data-item-requested"]); // mandatory
-            console.log(obj);
-            console.log(cborArray);
+            logger.debug(obj);
+            logger.debug(cborArray);
             break;
         case TEEP_TYPE_update: // TrustedAppUpdate
-            console.log(obj);
+            logger.debug(obj);
             let TAUpdateOption = new cbor.Map();
             if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
                 TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
@@ -281,7 +285,7 @@ var buildCborArray = function (obj) {
             cborArray.push(TAUpdateOption);
             break;
         default:
-            console.log("ERR!: cannot handle this message type in buildCborArray :" + obj.TYPE);
+            logger.error("cannot handle this message type in buildCborArray :" + obj.TYPE);
             return null;
     }
     return cborArray;
@@ -373,7 +377,7 @@ var parseCborArrayHelper = function (arr) {
             }
             break;
         default:
-            console.log("ERR!: cannot handle this message type in parseCborArrayHelper :" + arr[0]);
+            logger.error("cannot handle this message type in parseCborArrayHelper :" + arr[0]);
             return null;
     }
     return receivedObj;

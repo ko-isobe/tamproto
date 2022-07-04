@@ -5,7 +5,10 @@
 */
 var express = require('express');
 var path = require('path');
-var logger = require('morgan');
+//var logger = require('morgan');
+const log4js = require('log4js');
+const logger = log4js.getLogger('app.js');
+logger.level = 'debug';
 var http = require('http');
 var https = require('https');
 var fs = require('fs');
@@ -28,7 +31,7 @@ var opts = {
     //rejectUnauthorized: false
 };
 
-app.use(logger('dev'));
+app.use(log4js.connectLogger(log4js.getLogger('express')));
 app.use(bodyParser.json({ type: 'application/*+json', inflate: false }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.raw({
@@ -78,15 +81,15 @@ const setServIP = () => {
 
 
 setServIP().then(x => {
-    console.log(x);
+    logger.debug('server IpAddr set as:', x);
     module.exports.ipAddr = x;
 
     var listener = http.createServer(app).listen(8888, function () {
-        console.log('Express HTTP  server listening on port ' + listener.address().port);
+        logger.info('Express HTTP  server listening on port ' + listener.address().port);
     });
 
     var tls_listener = https.createServer(opts, app).listen(8443, function () {
-        console.log('Express HTTPS server listening on port ' + tls_listener.address().port);
+        logger.info('Express HTTPS server listening on port ' + tls_listener.address().port);
     });
 
     module.exports = app;

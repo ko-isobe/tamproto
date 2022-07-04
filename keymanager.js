@@ -6,6 +6,9 @@
 module.exports = {};
 
 var fs = require('fs');
+const log4js = require('log4js');
+const logger = log4js.getLogger('keymanager.js');
+logger.level = 'debug';
 var configJson = require('./config.json');
 
 var keyFilenameConfig = {
@@ -28,27 +31,27 @@ module.exports.diag = () => {
 }
 
 module.exports.loadConfig = () => {
-    console.log("Loading KeyConfig");
+    logger.info("Loading KeyConfig");
     keyFilenameConfig = configJson.key;
-    console.log(keyFilenameConfig);
+    logger.debug(keyFilenameConfig);
     return;
 }
 
 module.exports.saveConfig = () => {
-    console.log("Save KeyConfig");
+    logger.info("Save KeyConfig");
     configJson.key = keyFilenameConfig;
     fs.writeFileSync('./config.json', JSON.stringify(configJson, null, 2), function writeJSON(err) {
         if (err) {
-            return console.log(err);
+            return logger.error(err);
         }
-        console.log("Success save config.json");
+        logger.info("Success save config.json");
     })
     return;
 }
 
 module.exports.setKeyName = (keyName, val) => {
     if (!keyFilenameConfig.hasOwnProperty(keyName)) {
-        console.log("ERR!: no such key " + keyName);
+        logger.error("no such key " + keyName);
         return;
     }
     keyFilenameConfig[keyName] = val;
@@ -61,25 +64,25 @@ module.exports.getAllKeyName = () => {
 
 module.exports.loadKeyBinary = () => {
     Object.keys(keyFilenameConfig).forEach(function (x) {
-        console.log("Load key " + x);
+        logger.info("Load key " + x);
         keyChain[x] = fs.readFileSync("./key/" + keyFilenameConfig[x], function (err, data) {
             if (err) {
-                console.log("ERR!: load key binary " + x);
-                console.log(err);
+                logger.error("load key binary " + x);
+                logger.error(err);
                 return;
             }
-            console.log(data);
+            logger.debug(data);
             //keyChain[x] = data;
             return;
         });
     });
-    console.log("Key binary loaded");
+    logger.info("Key binary loaded");
     return;
 }
 
 module.exports.getKeyBinary = (keyName) => {
     if (!keyChain.hasOwnProperty(keyName)) {
-        console.log("ERR!: no such key " + keyName);
+        logger.error("no such key " + keyName);
         return;
     }
     return keyChain[keyName];
