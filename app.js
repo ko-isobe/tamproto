@@ -9,6 +9,9 @@ var path = require('path');
 const log4js = require('log4js');
 const logger = log4js.getLogger('app.js');
 logger.level = 'debug';
+const log4jex = require('log4js-extend');
+log4jex(log4js);
+
 var http = require('http');
 var https = require('https');
 var fs = require('fs');
