@@ -45,6 +45,11 @@ module.exports.generateToken = async () => {
 
 // Token verify and set used flag if unused
 module.exports.consumeToken = async (token) => {
+    if (token === undefined || token === null){
+        logger.error("Received token is null.")
+        return false
+    }
+    
     let buf = Buffer.from(token, 'hex');
     logger.debug(buf);
     const result = await Token.findOne({

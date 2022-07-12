@@ -228,8 +228,10 @@ router.post('/tam_cose', async function (req, res, next) {
          //res.end();
       }
    }).then(function (buf) {
-      logger.debug(buf.toString('hex'));
-      res.send(buf);
+      if (buf !== undefined) {
+         logger.debug(buf.toString('hex'));
+         res.send(buf);
+      }
       res.end();
       logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
       resolve("1");
