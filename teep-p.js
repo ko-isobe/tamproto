@@ -5,10 +5,10 @@
 */
 //var textenc = require('text-encoding');
 const ip = require('ip');
-const app = require('./app');
+//const app = require('./app');
 const cbor = require('cbor');
 const fs = require('fs');
-const { request } = require('./app');
+//const { request } = require('./app');
 const tokenManager = require('./tokenmanager');
 const log4js = require('log4js');
 const logger = log4js.getLogger('teep-p.js');
