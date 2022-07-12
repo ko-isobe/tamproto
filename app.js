@@ -24,9 +24,9 @@ var keyManager = require('./keymanager.js');
 var app = express();
 
 var opts = {
-    key: fs.readFileSync('./key/TAM_key.pem'),
-    cert: fs.readFileSync('./key/TAM_cert.pem'),
-    ca: fs.readFileSync('./key/RootCA_crt2.pem'),
+    key: fs.readFileSync('./key/TAM_ECkey.pem'),
+    cert: fs.readFileSync('./key/TAM_ECcrt.pem'),
+    ca: fs.readFileSync('./key/RootCA_crt.pem'),
     //requestCert:true,
     //rejectUnauthorized: false
 };

@@ -14,7 +14,7 @@
 ## API Endpoint
 - tamproto has the API endpoints in   
 ``http://<Machine HostIP>:8888/api/tam_cbor`` (CBOR)  
-``http://<Machine HostIP>:8888/api/tam_cose`` (COSE, To Be Implemented)  
+``http://<Machine HostIP>:8888/api/tam_cose`` (COSE Signing)  
 - These endpoints accept by HTTP POST method.
 - tamproto exposes port 8888 (HTTP) and 8433 (HTTPS)
 - Keys and certificates for TLS are stored in ``key`` directory.
