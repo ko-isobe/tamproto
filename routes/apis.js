@@ -62,35 +62,6 @@ let teepImplHandler = async function (req, body) {
    }
 }
 
-
-let cose_handler = async function (TeePubKeyObj, req) {
-   let promise = new Promise((resolve, reject) => {
-      try {
-         // verify
-         // key loading          //const p = keyReload();
-         let verifyKey = {
-            'key': {
-               'x': Buffer.from(TeePubKeyObj.x, 'base64'),
-               'y': Buffer.from(TeePubKeyObj.y, 'base64')
-            }
-         };
-         cose.sign.verify(req.body, verifyKey).then((buf) => {
-            //console.log(buf.toString('utf8'));
-            parsedCbor = cbor.decodeFirstSync(buf);
-            logger.debug(parsedCbor);
-            resolve(teepImplHandler(req, teepP.parseCborArray(parsedCbor)));
-         });
-      } catch (e) {
-         logger.error("Cbor parse error:" + e);
-         res.status(400);
-         res.end();
-         return;
-      }
-   });
-   let x = await promise;
-   return x;
-}
-
 // no encrypt (currently unused API)
 router.post('/tam', function (req, res, next) {
    // // check POST content
@@ -193,50 +164,68 @@ router.post('/tam_cose', async function (req, res, next) {
    let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
    let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
 
-   new Promise(function (resolve, reject) {
-      if (req.headers['content-length'] != 0) {
-         ret = cose_handler(TeePubKeyObj, req);
-      } else {
-         //Initialize TEEP-P
-         ret = teepImplHandler(req, req.body);
-      }
-      resolve(ret);
-   }).then(function (ret) {
-      if (ret == null) {
-         res.set(null);
-         res.status(204);
-         res.end();
-         logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
-         resolve("0");
-      } else {
-         //console.log(ret);
-         let cborResponseArray = teepP.buildCborArray(ret);
-         logger.debug(cborResponseArray);
-         logger.debug(TamKeyObj);
-         let plainPayload = cbor.encode(cborResponseArray);
-         let headers = {
-            'p': { 'alg': 'ES256' },
-            'u': { 'kid': '' }
-         };
-         let signer = {
+   if (req.headers['content-length'] != 0) { // request body is not null. Verify the TEEP Agent's signature
+      //verify the cose
+      try {
+         // verify
+         // key loading 
+         let verifyKey = {
             'key': {
-               'd': Buffer.from(TamKeyObj.d, 'base64')
+               'x': Buffer.from(TeePubKeyObj.x, 'base64'),
+               'y': Buffer.from(TeePubKeyObj.y, 'base64')
             }
          };
-         return cose.sign.create(headers, plainPayload, signer);
-         //res.send(cbor.encode(cborResponseArray));
-         //res.end();
+         let cbor_payload = await cose.sign.verify(req.body, verifyKey);
+         //console.log(buf.toString('utf8'));
+         parsedCbor = cbor.decodeFirstSync(cbor_payload);
+         logger.debug(parsedCbor);
+         ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
+      } catch (e) {
+         logger.error("COSE parse error:" + e);
+         res.status(400);
+         res.end();
+         return;
       }
-   }).then(function (buf) {
-      if (buf !== undefined) {
-         logger.debug(buf.toString('hex'));
-         res.send(buf);
-      }
+   } else { // request body is null. Needless to verify the request
+      //Initialize TEEP-P
+      ret = await teepImplHandler(req, req.body);
+   }
+
+   //sign the response 
+   if (ret == null) {
+      res.set(null);
+      res.status(204);
       res.end();
-      logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
-      resolve("1");
-      return;
-   });
+   } else {
+      //console.log(ret);
+      let cborResponseArray = teepP.buildCborArray(ret);
+      logger.debug(cborResponseArray);
+      logger.debug(TamKeyObj);
+      let plainPayload = cbor.encode(cborResponseArray);
+      let headers = {
+         'p': { 'alg': 'ES256' },
+         'u': { 'kid': '' }
+      };
+      if (TamKeyObj.hasOwnProperty('crv')) { 
+         if (TamKeyObj.crv === 'P-256') {
+            headers.p = { 'alg': 'ES256' };
+         } else if (TamKeyObj.crv === 'Ed25519') {
+            headers.p = { 'alg': 'EdDSA' };
+         }
+      }
+      if (TamKeyObj.hasOwnProperty('kid')) { // if TAM_priv has kid, set the same kid in COSE header
+         headers.u = { 'kid': TamKeyObj.kid };
+      }
+      let signer = {
+         'key': {
+            'd': Buffer.from(TamKeyObj.d, 'base64')
+         }
+      };
+      let cosePayload = await cose.sign.create(headers, plainPayload, signer);
+      res.send(cosePayload);
+      res.end();
+   }
+   logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
    return;
 });
 
