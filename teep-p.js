@@ -9,12 +9,23 @@ const ip = require('ip');
 const cbor = require('cbor');
 const fs = require('fs');
 //const { request } = require('./app');
+const yaml = require('js-yaml');
 const tokenManager = require('./tokenmanager');
 const log4js = require('log4js');
 const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
 
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
+let rules;
+// loading update rules definition
+try {
+    rules = yaml.load(fs.readFileSync('./rules.yaml', 'utf8'));
+    console.log(rules);
+} catch (e) {
+    logger.error('Failed to load rules.yaml :' + e);
+    return;
+}
+
 
 //ref. draft-ietf-teep-protocol-05#appendix-C
 const TEEP_TYPE_query_request = 1;
@@ -133,7 +144,7 @@ var parseQueryResponse = async function (obj, req) {
         // check the version
     }
 
-    //verify token(TBF)
+    //verify token
     logger.debug(obj.TOKEN);
     let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
     if (!isValidToken) {
@@ -141,17 +152,15 @@ var parseQueryResponse = async function (obj, req) {
     }
 
     logger.debug(obj.TA_LIST);
-    //is delete api? <= !! this is not mentioned in Drafts. <= this will remove due to integrated TAUpdateMessage
-    //let deleteFlg = req.path.includes("delete");
     logger.debug(obj.UNNEEDED_TC_LIST);
     //console.log(deleteFlg);
 
-    let installed = false;
-    if (Array.isArray(obj.TA_LIST)) {
-        obj.TA_LIST.filter(x => {
-            installed = (x === trustedAppUUID);
-        });
-    }
+    // let installed = false;
+    // if (Array.isArray(obj.TA_LIST)) {
+    //     obj.TA_LIST.filter(x => {
+    //         installed = (x === trustedAppUUID);
+    //     });
+    // }
 
     // ciphersuite
     if (typeof obj.SELECTED_CIPHER_SUITE !== 'undefined') {
@@ -173,35 +182,66 @@ var parseQueryResponse = async function (obj, req) {
     trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
     trustedAppUpdate.TOKEN = await tokenManager.generateToken();
 
-    // already installed TA?
-    if (installed) {
-        //build TA delete message
-        trustedAppUpdate.TC_LIST = [];
-        trustedAppUpdate.TC_LIST[0] = trustedAppUUID;
-        //return trustedAppUpdate;
+    // choosing install/remove TA along with rules.json
+    let deviceId = "teep-agent"; // set by attestation result
+    console.log(rules);
+    let rule = null;
+    if (deviceId in rules) {
+        rule = rules[deviceId];
     } else {
-        //build TA install message
-        trustedAppUpdate["manifest-list"] = []; // MANIFEST_LIST field is used to convey one or multiple SUIT manifests.
-        //trustedAppInstall.MANIFEST_LIST.push("http://" + app.ipAddr + ":8888/TAs/" + trustedAppUUID + ".ta");
-        //embedding static SUIT CBOR content
-        let sampleSuitContents = fs.readFileSync('./TAs/integrated-payload-manifest.cbor');
-        trustedAppUpdate["manifest-list"].push(sampleSuitContents);
-
-        //override URI in SUIT manifest and embed 
-        //trustedAppUpdate["manifest-list"].push(setUriDirective("./TAs/suit_manifest_expX.cbor", "https://tam-distrubute-point.example.com/"));
-        logger.debug(typeof trustedAppUpdate["manifest-list"][0]);
+        logger.error("cannot find device rule in config.json");
     }
+    console.log(rule.rules);
 
-    if (typeof obj.UNNEEDED_TC_LIST !== 'undefined') {
-        // unnneeded tc list
-        trustedAppUpdate.UNNEEDED_TC_LIST = [];
-        let buf = new ArrayBuffer(3);
-        let dv = new DataView(buf);
-        dv.setUint8(0, 01);
-        dv.setUint8(1, 02);
-        dv.setUint8(2, 03);
-        trustedAppUpdate.UNNEEDED_TC_LIST.push([buf]); // SUIT_Component_Identifier(bstr)
-        logger.debug(typeof trustedAppUpdate.UNNEEDED_TC_LIST[0]);
+    // retrieve the responsed condition
+    logger.debug(obj.TA_LIST);
+    // obj.TA_LIST.forEach(x => x.forEach((val,key)=>console.log(val + " from " + key)));
+    let cond_arr = [];
+    obj.TA_LIST.map(x => {
+        // x is Map (component-id => [* SUIT_Component_Identifier])
+        // SUIT_Component_Identifier is bstr array
+        let SUIT_idenfiers = x.get(16);
+        let arr = [];
+        SUIT_idenfiers.forEach(y => arr.push(Buffer.from(y)));
+        cond_arr.push(arr);
+    });
+    logger.debug(cond_arr);
+
+    // translate rule's list to Buffer array
+    let tmp_rules = [];
+    let tmp_updates = []; // update field's array
+    rule.rules.forEach(x => {
+        if (x.installed !== null) {
+            let arr = x.installed.map(y => {
+                return y.map(z => Buffer.from(z, 'hex'));
+            });
+            tmp_rules.push(arr);
+            tmp_updates.push(x.update);
+        }
+    });
+    logger.debug(tmp_rules);
+    logger.debug(tmp_updates);
+
+    // seek the matched rule
+    let update_rule = null;
+    let i = 0;
+    update_rule = tmp_rules.find((x, index) => {
+        console.log(x); console.log(cond_arr); console.log(JSON.stringify(x) == JSON.stringify(cond_arr));
+        if (JSON.stringify(x) == JSON.stringify(cond_arr)) {
+            i = index;
+            return true;
+        }
+    });
+    logger.debug(update_rule);
+    logger.debug(tmp_updates[i]);
+
+    if (update_rule !== null) {
+        trustedAppUpdate["manifest-list"] = [];
+        // embed the SUIT manifests
+        for (const target of tmp_updates[i]) {
+            let suitContents = fs.readFileSync('./TAs/' + target);
+            trustedAppUpdate["manifest-list"].push(suitContents);
+        }
     }
 
     return trustedAppUpdate;
@@ -312,10 +352,12 @@ var parseCborArrayHelper = function (arr) {
                 receivedObj[CBORLabels[6]] = receivedObj[CBORLabels[6]].toString('hex');
             }
             if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // ta-list Buffer=>String
-                receivedObj[CBORLabels[7]] = receivedObj[CBORLabels[7]].map(function (val) {
-                    return val.toString('hex');
-                });
+                // receivedObj[CBORLabels[7]] = receivedObj[CBORLabels[7]].map(function (val) {
+                //     return val.toString('hex');
+                // });
+                // receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
                 receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
+                logger.debug(receivedObj.TA_LIST);
             }
             if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
                 receivedObj[CBORLabels[14]] = receivedObj[CBORLabels[14]].map(function (val) {

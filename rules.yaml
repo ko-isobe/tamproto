@@ -1,0 +1,24 @@
+teep-agent: 
+  rules: 
+  - installed: 
+    update: 
+    - "tc1.suit"
+  - installed: 
+    # Component specified "HEX" string. Other formatting is ignored.
+    - ["8d82573a926d4754935332dc29997f74"]
+    update: 
+    - "tc2.suit"
+  - installed: 
+    - ["8d82573a926d4754935332dc29997f74"]
+    - ["1234567890"]
+    update: 
+  - installed:
+    - ["0102030405060708090A0B0C0D0E0F"]
+    - ["1102030405060708090A0B0C0D0E0F"]
+    update:
+    - "integrated-payload-manifest.cbor"
+intel_sgx_test: 
+  rules: 
+  - installed: 
+    update: 
+    - "tc1_sgxbin.suit"

@@ -1,12 +1,18 @@
 # Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
 # SPDX-License-Identifier: BSD-2-Clause
 version: '2'
-services: 
+services:
     tam_api:
         build: .
         command: node --trace-warnings app.js
-        ports: 
+        ports:
             - "8888:8888"
             - "8443:8443"
-        extra_hosts: 
+        extra_hosts:
             - "tam_srv_ip:192.168.11.4"
+    libteep:
+        build: https://raw.githubusercontent.com/yuichitk/libteep/master/client.Dockerfile
+        environment:
+            - TAM_URI=http://tam_api:8888/api/tam_cose
+        depends_on:
+            - "tam_api"
