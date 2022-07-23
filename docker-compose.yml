@@ -10,9 +10,9 @@ services:
             - "8443:8443"
         extra_hosts:
             - "tam_srv_ip:192.168.11.4"
-    libteep:
-        build: https://raw.githubusercontent.com/yuichitk/libteep/master/client.Dockerfile
-        environment:
-            - TAM_URI=http://tam_api:8888/api/tam_cose
-        depends_on:
-            - "tam_api"
+    # libteep:
+    #     build: https://raw.githubusercontent.com/yuichitk/libteep/master/client.Dockerfile
+    #     environment:
+    #         - TAM_URI=http://tam_api:8888/api/tam_cose
+    #     depends_on:
+    #         - "tam_api"

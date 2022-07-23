@@ -3,6 +3,7 @@
 - tamproto provides TAM server functions. Not covering device side (e.g TEEP Broker, TEEP Agent)
 
 ## Launch
+**See also [tamproto Quick Start](./quickstart.md)**
 ### with Docker (Recommended)
 + Build docker image by ``docker-compose up``
 + To stop the tamproto, escape from the container by pressing Ctrl+C, and then type ``docker stop`` for stopping the container.
@@ -20,9 +21,29 @@
 - Keys and certificates for TLS are stored in ``key`` directory.
 - I'll add sample script/data for calling APIs soon.
 
+## Configuration GUI
+- To set up some parameters, tamproto has UIs accessible from webbrowser.
+- ``http://<Machine HostIP>:8888/panel/`` (file/SUIT manifest static hosting)
+- ``http://<Machine HostIP>:8888/panel/keys`` (keymanager)
+- ``http://<Machine HostIP>:8888/panel/token`` (tokenmanager)
+
 ## Implementation Structure
 - tamproto uses [Express](https://expressjs.com/) framework.
-- The above API is implemented in ``routes/apis.js``.
+- The following code has each functions. Refer to each files for modifing or debugging tamproto.  
+-- `app.js` bootstrap  
+-- `apis.js` routing each API's request pass to TEEP-Protocol handler(`teep-p.js`)  
+-- `teep-p.js` implement of TEEP protocol  
+-- `keymanager.js` utility class of handling TEEP keys  
+-- `tokenmanager.js` utility class of managing  TEEP protocol's token  
+-- `panels.js` human interfaces of configuring tamproto
+
+## Limitations
+TEEP specification has some varietions in each functions. But tamproto doesn't all functions defined TEEP drafts.
+- ciphersuite - just only supports ECDSA signature. Other signature algorithms and ciphermechanisms aren't implemented.
+- freshness - just only supports token. Nor epoch and timestamp isn't implemented.
+- attestation - tamproto can't pass EAT evidence to Verifier. AR can't be verified in tamproto. Just payload showed. (To be supported)
+- suit report - suit report is also not implemented to parse as attestation is so.
+
 
 ## License
 ```

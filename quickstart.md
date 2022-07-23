@@ -99,3 +99,15 @@ Open `docker-compose.yml`. `libteep` section is disabled.
 De-comment out this section and run by `docker-compose up`.
 libteep automatically access the tamproto and testing sending and receiving TEEP messages.
 To see libteep's logs, input `docker logs -f <libteep's container id>`
+```
+PS D:\tamproto> cd d:\tamproto
+PS D:\tamproto> docker-compose restart libteep
+[+] Running 1/1
+ - Container tamproto-libteep-1  Started                                                                                                               0.9s
+PS D:\tamproto> docker ps -a
+CONTAINER ID   IMAGE              COMMAND                  CREATED        STATUS                     PORTS                                            NAMES
+d6ed1d33d10b   tamproto_libteep   "/bin/sh -c './teep_…"   4 hours ago    Exited (0) 3 seconds ago                                                    tamproto-libteep-1
+960a541eef23   tamproto_tam_api   "docker-entrypoint.s…"   4 hours ago    Up 4 hours                 0.0.0.0:8443->8443/tcp, 0.0.0.0:8888->8888/tcp   tamproto-tam_api-1
+PS D:\tamproto> docker logs -f d6ed1d33d10b
+ <libteep's log>
+```
