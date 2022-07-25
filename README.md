@@ -1,13 +1,15 @@
 # tamproto
 - This is an [IETF TEEP](https://github.com/ietf-teep) prototype implementation.
-- tamproto provides TAM server functions. Not covering device side (e.g TEEP Broker, TEEP Agent)
+- tamproto provides TAM server functionality. The device side, e.g. the TEEP Broker and the TEEP Agent, is not supported. 
 
 ## Launch
 **See also [tamproto Quick Start](./quickstart.md)**
-### with Docker (Recommended)
+
+### With Docker (Recommended)
 + Build docker image by ``docker-compose up``
 + To stop the tamproto, escape from the container by pressing Ctrl+C, and then type ``docker stop`` for stopping the container.
-### without Docker
+
+### Without Docker
 + At first, install necessary npm packages, run ``npm install``.
 + To run tamproto, type ``node app.js `` and execute.
 + To stop the tamproto, press Ctrl+C.
@@ -22,13 +24,13 @@
 - I'll add sample script/data for calling APIs soon.
 
 ## Configuration GUI
-- To set up some parameters, tamproto has UIs accessible from webbrowser.
+- To set up some parameters, tamproto has UIs accessible from the web browser.
 - ``http://<Machine HostIP>:8888/panel/`` (file/SUIT manifest static hosting)
 - ``http://<Machine HostIP>:8888/panel/keys`` (keymanager)
 - ``http://<Machine HostIP>:8888/panel/token`` (tokenmanager)
 
 ## Implementation Structure
-- tamproto uses [Express](https://expressjs.com/) framework.
+- tamproto uses the [Express](https://expressjs.com/) framework.
 - The following code has each functions. Refer to each files for modifing or debugging tamproto.  
 -- `app.js` bootstrap  
 -- `apis.js` routing each API's request pass to TEEP-Protocol handler(`teep-p.js`)  
@@ -38,12 +40,13 @@
 -- `panels.js` human interfaces of configuring tamproto
 
 ## Limitations
-TEEP specification has some varietions in each functions. But tamproto doesn't all functions defined TEEP drafts.
-- ciphersuite - just only supports ECDSA signature. Other signature algorithms and ciphermechanisms aren't implemented.
-- freshness - just only supports token. Nor epoch and timestamp isn't implemented.
-- attestation - tamproto can't pass EAT evidence to Verifier. AR can't be verified in tamproto. Just payload showed. (To be supported)
-- suit report - suit report is also not implemented to parse as attestation is so.
+The TEEP specification offers optional features and tamproto supports a subset of these options.
 
+The following features are implemented:
+- Only ECDSA signatures are supported. 
+- freshness is only supported for tokens. Neither epoch nor timestamp support is implemented.
+- attestation: tamproto cannot pass EAT evidence to a verifier and cannot be verified by tamproto. Instead, the EAT payload is displayed showed.
+- suit report is not supported.
 
 ## License
 ```
