@@ -84,7 +84,6 @@ var initMessage = async function () { //generate queryRequest Object
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
 
-    queryRequest["supported-cipher-suites"] = [TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA]; //cipher-suite as array
     queryRequest["versions"] = [0]; //version as array
 
     let initToken = new ArrayBuffer(8);
@@ -296,17 +295,18 @@ var parseErrorMessage = async function (obj) {
 
 var buildCborArray = function (obj) {
     //responseObj => cbor-ordered Array
-    //common order: 1->type 2->token
+    //common order: 1->type 2->options
     let cborArray = [obj.TYPE];
     switch (obj.TYPE) {
         case TEEP_TYPE_query_request: // QueryRequest
             let options = new Map(); // option is mandatory field even though no elements.
             CBORLabels.forEach((key, idx) => {
-                if (obj.hasOwnProperty(key)) {
+                if (obj.hasOwnProperty(key) && key !== "supported-cipher-suites") { //supported-cipher-suites isn't include in options
                     options.set(idx + 1, obj[key]);
                 }
             });
             cborArray.push(options);
+            cborArray.push(obj["supported-cipher-suites"]); // mandatory
             cborArray.push(obj["data-item-requested"]); // mandatory
             logger.debug(obj);
             logger.debug(cborArray);
