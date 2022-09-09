@@ -26,7 +26,6 @@ try {
     return;
 }
 
-
 //ref. draft-ietf-teep-protocol-05#appendix-C
 const TEEP_TYPE_query_request = 1;
 const TEEP_TYPE_query_response = 2;
@@ -42,10 +41,25 @@ const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 's
 const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
 logger.debug('TEEP Const Values array set as:', cborLtoI);
 
-//ref. draft-ietf-teep-protocol-06#section-7
-//cipher-suites
-const TEEP_AES_CCM_16_64_128_HMAC256__256_X25519_EdDSA = 1;
-const TEEP_AES_CCM_16_64_128_HMAC256__256_P_256_ES256 = 2;
+//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
+const COSE_alg_es256 = -7;
+const COSE_alg_eddsa = -8;
+const COSE_alg_ps256 = -37;
+const COSE_alg_ps384 = -38;
+const COSE_alg_ps512 = -39;
+const COSE_alg_rsa_oaep_256 = -41;
+const COSE_alg_rsa_oaep_512 = -42;
+const COSE_alg_accm_16_64_128 = 10;
+const COSE_alg_hmac_256 = 5;
+
+//ref. draft-ietf-teep-protocol-10#section-8
+//cipher-suite
+const COSE_Sign1_Tagged = 18;
+const TEEP_operation_sign1_eddsa = [COSE_Sign1_Tagged, COSE_alg_eddsa];
+const TEEP_operation_sign1_es256 = [COSE_Sign1_Tagged, COSE_alg_es256];
+
+const TEEP_cipher_suite_sign1_eddsa = [TEEP_operation_sign1_eddsa];
+const TEEP_cipher_suite_sign1_es256 = [TEEP_operation_sign1_es256];
 
 //ref. draft-ietf-teep-protocol-06#apppendix-C
 const TEEP_FRESHNESS_NONCE = 0;
@@ -62,17 +76,6 @@ const TEEP_ERR_BAD_CERTIFICATE = 6;
 const TEEP_ERR_CERTIFICATE_EXPIRED = 9;
 const TEEP_ERR_TEMPORARY_ERROR = 10;
 const TEEP_ERR_MANIFEST_PROCESSING_FAILED = 17;
-
-//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
-const COSE_alg_es256 = -7;
-const COSE_alg_eddsa = -8;
-const COSE_alg_ps256 = -37;
-const COSE_alg_ps384 = -38;
-const COSE_alg_ps512 = -39;
-const COSE_alg_rsa_oaep_256 = -41;
-const COSE_alg_rsa_oaep_512 = -42;
-const COSE_alg_accm_16_64_128 = 10;
-const COSE_alg_hmac_256 = 5;
 
 var init = function () {
     logger.info("called TEEP-P init");
@@ -96,11 +99,11 @@ var initMessage = async function () { //generate queryRequest Object
     //supported-freshness-mechanisms
     queryRequest["supported-freshness-mechanisms"] = [TEEP_FRESHNESS_NONCE];
     //supported-cipher-suites
-    let suite = [COSE_alg_es256, null, null];
-    queryRequest["supported-cipher-suites"] = [suite]
+    queryRequest["supported-cipher-suites"] = [TEEP_cipher_suite_sign1_es256];
     //data-item-requested
     queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
 
+    console.log(queryRequest);
     return queryRequest;
 }
 
