@@ -19,10 +19,12 @@ var bodyParser = require('body-parser');
 const dns = require('dns');
 const ip = require('ip');
 
+var keyManager = require('./keymanager.js');
+keyManager.loadConfig();
+keyManager.loadKeyBinary();
+
 var apis = require('./routes/apis');
 var panels = require('./routes/panels');
-
-var keyManager = require('./keymanager.js');
 
 var app = express();
 
@@ -48,9 +50,6 @@ app.use(bodyParser.raw({
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-
-keyManager.loadConfig();
-keyManager.loadKeyBinary();
 
 app.use('/api', apis);
 app.use('/panel', panels);

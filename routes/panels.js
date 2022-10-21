@@ -29,6 +29,7 @@ var keyupload = multer({ storage: keystorage });
 var jose = require('node-jose');
 var keyManager = require('../keymanager.js');
 var tokenManager = require('../tokenmanager.js');
+var rats = require('../rats.js');
 
 const log4js = require('log4js');
 const logger = log4js.getLogger('panels.js');
@@ -104,6 +105,7 @@ const getKeysList = (req, res, next) => {
     res.locals.key_TAMpub = configs.TAM_pub;
     res.locals.key_TEEpriv = configs.TEE_priv;
     res.locals.key_TEEpub = configs.TEE_pub;
+    res.locals.key_Verify = configs.Verify;
     //collect key files
     fs.readdir('./key', { withFileTypes: true }, function (err, files) {
         if (err) throw err;
@@ -146,6 +148,7 @@ router.post('/key_config', getKeysList, function (req, res) {
     keyManager.setKeyName("TAM_pub", req.body.tam_pub);
     keyManager.setKeyName("TEE_priv", req.body.tee_priv);
     keyManager.setKeyName("TEE_pub", req.body.tee_pub);
+    keyManager.setKeyName("Verify", req.body.verifier);
     keyManager.saveConfig();
     keyManager.loadKeyBinary();
     //load key config
@@ -154,6 +157,7 @@ router.post('/key_config', getKeysList, function (req, res) {
     res.locals.key_TAMpub = configs.TAM_pub;
     res.locals.key_TEEpriv = configs.TEE_priv;
     res.locals.key_TEEpub = configs.TEE_pub;
+    res.locals.key_Verify = configs.Verify;
     res.render("./keymanage.ejs");
 });
 
@@ -194,6 +198,13 @@ router.get('/token', async function (req, res) {
     let obj = await tokenManager.getAllTokens();
     res.locals.tokens = obj;
     res.render("./token.ejs");
+});
+
+// Challenge Table UI
+router.get('/challenge', async function (req, res) {
+    let obj = await rats.getAllChallenges();
+    res.locals.challenges = obj;
+    res.render("./challenge.ejs");
 });
 
 module.exports = router;

@@ -14,6 +14,7 @@ const tokenManager = require('./tokenmanager');
 const log4js = require('log4js');
 const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
+const rats = require('./rats');
 
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 let rules;
@@ -103,6 +104,10 @@ var initMessage = async function () { //generate queryRequest Object
     //data-item-requested
     queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
 
+    // rats
+    queryRequest["data-item-requested"] = 0b0011; // attestation(1) and trusted-components(2) are requested
+    queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
+
     console.log(queryRequest);
     return queryRequest;
 }
@@ -177,6 +182,8 @@ var parseQueryResponse = async function (obj, req) {
     }
     if (typeof obj.EVIDENCE !== 'undefined') {
         logger.info("QueryResponse contains Evidence.");
+    } else {
+        rats.verifyEAT(obj.EVIDENCE);
     }
 
     // building the response

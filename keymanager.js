@@ -15,14 +15,16 @@ var keyFilenameConfig = {
     "TAM_priv": "",
     "TAM_pub": "",
     "TEE_priv": "",
-    "TEE_pub": ""
+    "TEE_pub": "",
+    "Verify": ""
 };
 
 var keyChain = {
     "TAM_priv": null,
     "TAM_pub": null,
     "TEE_priv": null,
-    "TEE_pub": null
+    "TEE_pub": null,
+    "Verify": null
 };
 
 module.exports.diag = () => {
