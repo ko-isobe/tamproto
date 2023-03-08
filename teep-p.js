@@ -182,8 +182,9 @@ var parseQueryResponse = async function (obj, req) {
     }
     if (typeof obj.EVIDENCE !== 'undefined') {
         logger.info("QueryResponse contains Evidence.");
-    } else {
         rats.verifyEAT(obj.EVIDENCE);
+    } else {
+        logger.info("QueryResponse doesn't have Evidence.");
     }
 
     // building the response

@@ -2,8 +2,8 @@
   "key": {
     "TAM_priv": "teep_ecP256.jwk",
     "TAM_pub": "teep_ecP256.jwk",
-    "TEE_priv": "teep_ecP256.jwk",
+    "TEE_priv": "teep_agent_prime256v1.jwk",
     "TEE_pub": "teep_agent_prime256v1_pub.jwk",
-    "Verify": "rats_verifier_priv.jwk"
+    "Verify": "nverifier_pub.jwk"
   }
 }

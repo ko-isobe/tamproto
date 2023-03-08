@@ -26,12 +26,9 @@ const Challenge = sequelize.define('Challenge', {
         type: DataTypes.BLOB,
         allowNull: false
     },
-    token: {
-        type: DataTypes.BLOB,
-    },
     isUsed: {
         type: DataTypes.BOOLEAN
-    }
+    },
 });
 
 Challenge.sync();
@@ -63,14 +60,6 @@ module.exports.generateChallenge = async () => {
     //})
 }
 
-module.exports.generateBindedChallenge = async (token) => {
-    const new_challenge = await Challenge.create({ challenge: generateRandomBytes(), isUsed: false, token: token });
-    //Challenge.then(function(result){
-    logger.debug('new Token-binded Challenge record:', new_challenge.toJSON())
-    return await new_challenge.challenge
-    //})
-}
-
 //get All tokens to show token's table
 module.exports.getAllChallenges = async () => {
     const result = await Challenge.findAll({ raw: true });
@@ -78,10 +67,43 @@ module.exports.getAllChallenges = async () => {
     return result;
 }
 
+// Token verify and set used flag if unused
+module.exports.consumeChallenge = async (challenge) => {
+    if (challenge === undefined || challenge === null){
+        logger.error("No challenge is given.")
+        return false
+    }
+    
+    let buf = Buffer.from(challenge, 'hex');
+    logger.debug(buf);
+    const result = await Challenge.findOne({
+        where: {
+            token: buf
+        }
+    })
+    if (result === null) {
+        //doesn't match the received token
+        logger.error("Received challenge is not found in Token Manager.")
+        return false
+    }
+    if (result.isUsed) {
+        // the received token is already used
+        logger.error("Found the received challenge. But already used.")
+        return false
+    }
+    // the received token is not used(=valid). Turn into the used token
+    result.isUsed = true;
+    await result.save();
+    return true
+}
+
 module.exports.verifyEAT = async (eat) => {
     try {
         let eat_payload = await cose.sign.verify(eat, verifyKey);
         console.log(eat_payload);
+        // check EAT format
+        // check challenge
+        this.consumeChallenge(eat_payload.challenge);
     } catch (e) {
         logger.error('verify error', e.toString());
     }
