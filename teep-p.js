@@ -181,10 +181,11 @@ var parseQueryResponse = async function (obj, req) {
         logger.info("Evidence format is " + obj.EVIDENCE_FORMAT);
     }
     if (typeof obj.EVIDENCE !== 'undefined') {
-        logger.info("QueryResponse contains Evidence.");
-        rats.verifyEAT(obj.EVIDENCE);
+        logger.info("QueryResponse contains attestation payload.");
+        let eat_payload = await rats.verifyEAT(obj.EVIDENCE);
+        logger.info(eat_payload);
     } else {
-        logger.info("QueryResponse doesn't have Evidence.");
+        logger.info("QueryResponse doesn't have attestation payload.");
     }
 
     // building the response
