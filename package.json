@@ -19,7 +19,7 @@
     "nconf": "0.12.0",
     "node-jose": "~2.2.0",
     "sequelize": "^6.29.0",
-    "sqlite3": "^5.0.8",
+    "sqlite3": "^5.1.5",
     "log4js": "^6.5.2",
     "log4js-extend": "^0.2.1",
     "js-yaml": "^4.1.0"
