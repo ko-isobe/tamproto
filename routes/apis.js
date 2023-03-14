@@ -159,11 +159,23 @@ router.post('/tam_cose', async function (req, res, next) {
 
    //retrieve TAM private key
    let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
-   let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
+   let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString()); //use default Agent key
 
    if (req.headers['content-length'] != 0) { // request body is not null. Verify the TEEP Agent's signature
       //verify the cose
       try {
+         //check COSE_Sign1 Tag and choose Agent Public Key from COSE unprotected header's kid
+         let cose_object = cbor.decodeFirstSync(req.body);
+         if (cose_object.tag !== 18) { // is COSE_Sign1?
+            logger.debug(cose_object);
+            throw new Error("Received object isn't COSE_Sign1. tag is " + cose_object.tag);
+         }
+         if (cose_object.value[1].has(4) && keyManager.isStoredAgentKey(Buffer.from(cose_object.value[1].get(4)).toString())) { // unprotected header has kid(4)
+            TeePubKeyObj = JSON.parse(keyManager.getAgentKeyBinary(Buffer.from(cose_object.value[1].get(4)).toString())); // use obtained kid's Public key
+            logger.info("Use the Agent Public key (kid=" + Buffer.from(cose_object.value[1].get(4)).toString() + ")");
+         } else {
+            logger.info("Use default Agent Public key.");
+         }
          // verify
          // key loading 
          let verifyKey = {
@@ -173,7 +185,6 @@ router.post('/tam_cose', async function (req, res, next) {
             }
          };
          let cbor_payload = await cose.sign.verify(req.body, verifyKey);
-         //console.log(buf.toString('utf8'));
          parsedCbor = cbor.decodeFirstSync(cbor_payload);
          logger.debug(parsedCbor);
          ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
@@ -203,7 +214,7 @@ router.post('/tam_cose', async function (req, res, next) {
          'p': { 'alg': 'ES256' },
          'u': { 'kid': '' }
       };
-      if (TamKeyObj.hasOwnProperty('crv')) { 
+      if (TamKeyObj.hasOwnProperty('crv')) {
          if (TamKeyObj.crv === 'P-256') {
             headers.p = { 'alg': 'ES256' };
          } else if (TamKeyObj.crv === 'Ed25519') {

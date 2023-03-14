@@ -20,7 +20,7 @@ let rules;
 // loading update rules definition
 try {
     rules = yaml.load(fs.readFileSync('./rules.yaml', 'utf8'));
-    console.log(rules);
+    logger.debug(rules);
 } catch (e) {
     logger.error('Failed to load rules.yaml :' + e);
     return;
@@ -39,9 +39,9 @@ const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 's
     'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
     'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
 const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
-logger.debug('TEEP Const Values array set as:', cborLtoI);
+//logger.debug('TEEP Const Values array set as:', cborLtoI);
 
-//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
+//ref. algorithm identifiers defined in the IANA COSE Algorithms Registry
 const COSE_alg_es256 = -7;
 const COSE_alg_eddsa = -8;
 const COSE_alg_ps256 = -37;

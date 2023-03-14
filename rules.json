@@ -1,0 +1,39 @@
+{
+    "teep-agent": {
+        "key": "teep_agent_prime256v1_pub.jwk",
+        "rules": [
+            {
+                "installed": null,
+                "update": [
+                    "tc1.suit"
+                ]
+            },
+            {
+                "installed": [
+                    "8d82573a-926d-4754-9353-32dc29997f74"
+                ],
+                "update": [
+                    "tc2.suit"
+                ]
+            },
+            {
+                "installed": [
+                    "8d82573a-926d-4754-9353-32dc29997f74",
+                    "hogehoge_1234567890_pd"
+                ],
+                "update": null
+            }
+        ]
+    },
+    "intel_sgx_test": {
+        "key": "teep_ecP256_kid.jwk",
+        "rules": [
+            {
+                "installed": null,
+                "update": [
+                    "tc1_sgxbin.suit"
+                ]
+            }
+        ]
+    }
+}
