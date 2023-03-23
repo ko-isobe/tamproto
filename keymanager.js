@@ -27,18 +27,19 @@ var keyChain = {
 };
 
 // Agent Public Key's
-var agentPubKeyFilenames = {}
-var agentPubKeys = {}; // kid => filename
+let agentPubKeyFilenames = {}
+let agentPubKeys = {}; // kid => filename
+let agentKid2DeviceName = {}; // kid => device name 
 
 module.exports.loadConfig = () => {
     logger.info("Loading KeyConfig");
     keyFilenameConfig = configJson.key;
+    logger.debug(keyFilenameConfig);
     // rulesJson format check is needed
     Object.keys(rulesJson).forEach(function (x) {
         agentPubKeyFilenames[x] = rulesJson[x].key;
     });
     logger.debug(agentPubKeyFilenames);
-    logger.debug(keyFilenameConfig);
     return;
 }
 
@@ -96,9 +97,11 @@ module.exports.loadKeyBinary = () => {
         let keyObj = JSON.parse(keyString);
         if (keyObj.hasOwnProperty("kid")) {
             agentPubKeys[keyObj.kid] = keyString;
+            agentKid2DeviceName[keyObj.kid] = x;
         } else {
-            logger.warn("Following Agent Public key doen't have kid. " + x);
+            logger.warn("the following Agent Public key doen't have kid: " + x);
             agentPubKeys[x] = keyString; // temporary
+            agentKid2DeviceName[x] = x;
         }
     })
     //logger.debug(agentPubKeys);
@@ -123,4 +126,12 @@ module.exports.getAgentKeyBinary = (kid) => {
         return;
     }
     return agentPubKeys[kid];
+}
+
+module.exports.getDeviceNamebyKid = (kid) => {
+    if (!agentKid2DeviceName.hasOwnProperty(kid)) {
+        logger.error("no such Agent Public key " + kid);
+        return;
+    }
+    return agentKid2DeviceName[kid];
 }

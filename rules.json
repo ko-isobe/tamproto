@@ -3,13 +3,13 @@
         "key": "teep_agent_prime256v1_pub.jwk",
         "rules": [
             {
-                "installed": null,
+                "requested": null,
                 "update": [
                     "tc1.suit"
                 ]
             },
             {
-                "installed": [
+                "requested": [
                     "8d82573a-926d-4754-9353-32dc29997f74"
                 ],
                 "update": [
@@ -17,7 +17,7 @@
                 ]
             },
             {
-                "installed": [
+                "requested": [
                     "8d82573a-926d-4754-9353-32dc29997f74",
                     "hogehoge_1234567890_pd"
                 ],
@@ -26,12 +26,20 @@
         ]
     },
     "intel_sgx_test": {
-        "key": "teep_ecP256_kid.jwk",
+        "key": "teep_agent_prime256v1_pub_kid.jwk",
         "rules": [
             {
-                "installed": null,
+                "requested": null,
                 "update": [
                     "tc1_sgxbin.suit"
+                ]
+            },
+            {
+                "requested": [
+                    "suit-enclave-hello.suit"
+                ],
+                "update": [
+                    "dummy2.ta"
                 ]
             }
         ]

@@ -35,7 +35,7 @@ router.get('/', function (req, res, next) {
    res.send(param);
 });
 
-let teepImplHandler = async function (req, body) {
+let teepImplHandler = async function (req, body, kid = null) {
    // See teep-protocol-06#Section 6.1
    // Pass the request to teep-p.js and get the reseponse.
    let ret = null;
@@ -48,9 +48,9 @@ let teepImplHandler = async function (req, body) {
    } else {
       logger.info("TAM ProcessTeepMessage instance");
       //Call ProcessTeepMessage API
-      ret = await teepP.parse(body, req);
+      ret = await teepP.parse(body, req, kid);
       logger.info("TAM ProcessTeepMessage response");
-      logger.debug(ret);
+      //logger.debug(ret);
       if (ret == null) {
          //invalid message from client device
          logger.warn("WARNING: Agent may sent invalid contents. TAM responses null."); // @TODO review this message
@@ -170,9 +170,15 @@ router.post('/tam_cose', async function (req, res, next) {
             logger.debug(cose_object);
             throw new Error("Received object isn't COSE_Sign1. tag is " + cose_object.tag);
          }
-         if (cose_object.value[1].has(4) && keyManager.isStoredAgentKey(Buffer.from(cose_object.value[1].get(4)).toString())) { // unprotected header has kid(4)
-            TeePubKeyObj = JSON.parse(keyManager.getAgentKeyBinary(Buffer.from(cose_object.value[1].get(4)).toString())); // use obtained kid's Public key
-            logger.info("Use the Agent Public key (kid=" + Buffer.from(cose_object.value[1].get(4)).toString() + ")");
+         let kid = null;
+         if (cose_object.value[1] instanceof Map) {
+            if (cose_object.value[1].has(4) && keyManager.isStoredAgentKey(Buffer.from(cose_object.value[1].get(4)).toString())) { // unprotected header has kid(4)
+               kid = Buffer.from(cose_object.value[1].get(4)).toString();
+               TeePubKeyObj = JSON.parse(keyManager.getAgentKeyBinary(kid)); // use obtained kid's Public key
+               logger.info("Use the Agent Public key (kid=" + kid + ")");
+            } else {
+               logger.warn("Received COSE doesn't have TAM-known kid in unprotected header.");
+            }
          } else {
             logger.info("Use default Agent Public key.");
          }
@@ -187,7 +193,7 @@ router.post('/tam_cose', async function (req, res, next) {
          let cbor_payload = await cose.sign.verify(req.body, verifyKey);
          parsedCbor = cbor.decodeFirstSync(cbor_payload);
          logger.debug(parsedCbor);
-         ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
+         ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor), kid);
       } catch (e) {
          logger.error("COSE parse error:" + e);
          res.status(400);
@@ -208,7 +214,7 @@ router.post('/tam_cose', async function (req, res, next) {
       //console.log(ret);
       let cborResponseArray = teepP.buildCborArray(ret);
       logger.debug(cborResponseArray);
-      logger.debug(TamKeyObj);
+      //logger.debug(TamKeyObj);
       let plainPayload = cbor.encode(cborResponseArray);
       let headers = {
          'p': { 'alg': 'ES256' },
