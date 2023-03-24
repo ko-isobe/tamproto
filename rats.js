@@ -128,7 +128,7 @@ module.exports.verifyEAT = async (eat, kid = null) => {
             let isValidCnf = verifyCnf(eat_object.cnf);
             if (!isValidCnf) {
                 logger.error("cnf claim in EAT isn't valid.");
-            }else{
+            } else {
                 logger.info("cnf in EAT is valid.");
             }
         }
@@ -185,7 +185,7 @@ const verifyCnf = function (payload, kid) {
         let concatKeyValue = keyX.toString('hex') + keyY.toString('hex');
         //logger.debug(concatKeyValue);
         const hash = crypto.createHash('sha256');
-        hash.update(concatKeyValue,'hex');
+        hash.update(concatKeyValue, 'hex');
         let hashVal = hash.digest('hex');
         logger.debug(`holding_key is:${hashVal}`);
         //compare claimed kid and calculated hash of holding Agent public key

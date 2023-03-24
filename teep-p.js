@@ -53,8 +53,9 @@ const COSE_alg_rsa_oaep_256 = -41;
 const COSE_alg_rsa_oaep_512 = -42;
 const COSE_alg_accm_16_64_128 = 10;
 const COSE_alg_hmac_256 = 5;
+const COSE_alg_a128gcm = 1;
 
-//ref. draft-ietf-teep-protocol-10#section-8
+//ref. draft-ietf-teep-protocol-12#section-8.1
 //cipher-suite
 const COSE_Sign1_Tagged = 18;
 const TEEP_operation_sign1_eddsa = [COSE_Sign1_Tagged, COSE_alg_eddsa];
@@ -62,6 +63,10 @@ const TEEP_operation_sign1_es256 = [COSE_Sign1_Tagged, COSE_alg_es256];
 
 const TEEP_cipher_suite_sign1_eddsa = [TEEP_operation_sign1_eddsa];
 const TEEP_cipher_suite_sign1_es256 = [TEEP_operation_sign1_es256];
+
+//ref. draft-ietf-teep-protocol-12#section-8.2
+const SUIT_SHA256_ES256_HPKE_A128GCM = [COSE_alg_es256, COSE_alg_a128gcm];
+const SUIT_SHA256_EDDSA_HPKE_A128GCM = [COSE_alg_eddsa, COSE_alg_a128gcm];
 
 //ref. draft-ietf-teep-protocol-06#apppendix-C
 const TEEP_FRESHNESS_NONCE = 0;
@@ -101,7 +106,9 @@ var initMessage = async function () { //generate queryRequest Object
     //supported-freshness-mechanisms
     queryRequest["supported-freshness-mechanisms"] = [TEEP_FRESHNESS_NONCE];
     //supported-cipher-suites
-    queryRequest["supported-cipher-suites"] = [TEEP_cipher_suite_sign1_es256];
+    queryRequest["supported-teep-cipher-suites"] = [TEEP_cipher_suite_sign1_es256];
+    //supported-suit-cose-profiles
+    queryRequest["supported-suit-cose-profiles"] = [SUIT_SHA256_ES256_HPKE_A128GCM];
     //data-item-requested
     queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
 
@@ -109,7 +116,7 @@ var initMessage = async function () { //generate queryRequest Object
     queryRequest["data-item-requested"] = 0b0011; // attestation(1) and trusted-components(2) are requested
     queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
 
-    console.log(queryRequest);
+    logger.debug(queryRequest);
     return queryRequest;
 }
 
@@ -328,12 +335,13 @@ var buildCborArray = function (obj) {
         case TEEP_TYPE_query_request: // QueryRequest
             let options = new Map(); // option is mandatory field even though no elements.
             CBORLabels.forEach((key, idx) => {
-                if (obj.hasOwnProperty(key) && key !== "supported-cipher-suites") { //supported-cipher-suites isn't include in options
+                if (obj.hasOwnProperty(key) && key !== "supported-teep-cipher-suites" && key !== "supported-suit-cose-profiles") { //supported-cipher-suites isn't include in options
                     options.set(idx + 1, obj[key]);
                 }
             });
             cborArray.push(options);
-            cborArray.push(obj["supported-cipher-suites"]); // mandatory
+            cborArray.push(obj["supported-teep-cipher-suites"]); // mandatory
+            cborArray.push(obj["supported-suit-cose-profiles"]); // mandatory
             cborArray.push(obj["data-item-requested"]); // mandatory
             logger.debug(obj);
             logger.debug(cborArray);

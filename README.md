@@ -36,6 +36,10 @@
 - First block is a device name field. This fields are used as just indicating device names in tamproto output.
 - `key` field is to specify each Agent public key's filename. This keyfile is required to contain `kid` for distinguishing Agents. When using multiple Agents, each Agent should contain same `kid` in the COSE unprotected header.
 - `rules` field holds pairs to Agent's request TC-lists and TAM's response manifest. The `requested` field is match to the `requested-tc-list` in QueryResponse. And the `update` field is match to the `manifest-list` in QueryResponse. (See [ietf-teep-protocol Section 4.2 and 4.3](https://datatracker.ietf.org/doc/html/draft-ietf-teep-protocol-12))
+### Attestation
+- tamproto supports Passport model. Background-check model isn't so.
+- When QueryResponse contains Attestation Results EAT, tamproto tries to verify it by the following Verifier public key.
+- Store an Verifier ECDSA P-256 public jwk file in `key` directory and write its filename into `key["Verify"]` field in `config.json`.
 ### TLS Keys
 - When using TLS connection between TAM and TEEP brokers, you can obtain the TLS Keys and Certificates in the `key` directory.
 - If you want to use your own keys and certs, replace these files with keeping the same filenames.
@@ -50,8 +54,9 @@
 -- `app.js` bootstrap  
 -- `apis.js` routing each API's request pass to TEEP-Protocol handler(`teep-p.js`). Signing and Verifying COSE signatures.  
 -- `teep-p.js` implement of TEEP protocol  
+-- `rats.js` implement of EAT Signature and claims verification
 -- `keymanager.js` utility class of handling TEEP keys  
--- `tokenmanager.js` utility class of managing TEEP protocol's token  
+-- `tokenmanager.js` utility class of managing TEEP protocol's token 
 -- `panels.js` human interfaces of configuring tamproto
 
 ## Limitations and Wish list
