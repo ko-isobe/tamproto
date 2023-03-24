@@ -20,6 +20,7 @@ const claimsArray = {
     'verifier_challenge': -70000 // Private use for s-miyazawa/teep_armadilo_trial
 };
 const claimsNametoKey = new Map(Object.entries(claimsArray));
+const mandatoryClaims = ['ueid', 'oemid', 'hwmodel', 'hwversion', 'manifests', 'cnf']; // ref. Section 5 in TEEP-Protocol
 //console.log(claimsNametoKey);
 
 // Database for storing challenge
@@ -115,6 +116,12 @@ module.exports.verifyEAT = async (eat) => {
         //logger.debug(eat_payload);
         // check and parse EAT format
         let eat_object = parseCborMapHelper(eat_payload);
+        // mandatory claims check
+        mandatoryClaims.forEach(x => {
+            if (!eat_object.hasOwnProperty(x)) {
+                logger.error(`Obtained EAT doesn't have a mandatory claim: ${x}`);
+            }
+        });
         // check challenge
         let isValidChallenge = await this.consumeChallenge(eat_object.nonce);
         return eat_object;
