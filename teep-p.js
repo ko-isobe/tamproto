@@ -9,7 +9,6 @@ const ip = require('ip');
 const cbor = require('cbor');
 const fs = require('fs');
 //const { request } = require('./app');
-const yaml = require('js-yaml');
 const tokenManager = require('./tokenmanager');
 const keyManager = require('./keymanager');
 const log4js = require('log4js');
@@ -174,7 +173,7 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         }
         if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
             logger.info("QueryResponse contains Evidence.");
-            let eat_payload = await rats.verifyEAT(obj.EVIDENCE);
+            let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD);
             logger.info(eat_payload);
         }
 
