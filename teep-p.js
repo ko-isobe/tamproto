@@ -11,7 +11,9 @@ const fs = require('fs');
 //const { request } = require('./app');
 const yaml = require('js-yaml');
 const tokenManager = require('./tokenmanager');
+const keyManager = require('./keymanager');
 const log4js = require('log4js');
+const { match } = require('assert');
 const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
 const rats = require('./rats');
@@ -20,10 +22,10 @@ const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 let rules;
 // loading update rules definition
 try {
-    rules = yaml.load(fs.readFileSync('./rules.yaml', 'utf8'));
-    console.log(rules);
+    rules = require('./rules.json');
+    logger.debug(rules);
 } catch (e) {
-    logger.error('Failed to load rules.yaml :' + e);
+    logger.error('Failed to load rules.json :' + e);
     return;
 }
 
@@ -34,15 +36,15 @@ const TEEP_TYPE_update = 3;
 const TEEP_TYPE_teep_success = 5;
 const TEEP_TYPE_teep_error = 6;
 
-//ref. draft-ietf-teep-protocol-08#section-6 , ocsp-data is obsoleted.
-const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 'selected-cipher-suite',
-    'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
-    'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
-    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
+//ref. draft-ietf-teep-protocol-12#section-6 
+const CBORLabels = ['supported-teep-cipher-suites', 'challenge', 'versions', 'supported-suit-cose-profiles', 'selected-teep-cipher-suite',
+    'selected-version', 'attestation-payload', 'tc-list', 'ext-list', 'manifest-list',
+    'msg', 'err-msg', 'attestation-payload-format', 'requested-tc-list', 'unneeded-manifest-list',
+    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms', null, 'err-code'];
 const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
-logger.debug('TEEP Const Values array set as:', cborLtoI);
+//logger.debug('TEEP Const Values array set as:', cborLtoI);
 
-//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
+//ref. algorithm identifiers defined in the IANA COSE Algorithms Registry
 const COSE_alg_es256 = -7;
 const COSE_alg_eddsa = -8;
 const COSE_alg_ps256 = -37;
@@ -112,7 +114,7 @@ var initMessage = async function () { //generate queryRequest Object
     return queryRequest;
 }
 
-var parse = async function (obj, req) {
+var parse = async function (obj, req, kid = null) {
     logger.info("TEEP-Protocol:parse");
     let ret = null;
     //check TEEP Protocol message
@@ -123,7 +125,7 @@ var parse = async function (obj, req) {
 
     switch (obj.TYPE) {
         case TEEP_TYPE_query_response: //queryResponse
-            ret = await parseQueryResponse(obj, req);
+            ret = await parseQueryResponse(obj, req, kid);
             break;
         case TEEP_TYPE_teep_success:
             // Success
@@ -143,119 +145,133 @@ var parse = async function (obj, req) {
     return ret;
 }
 
-var parseQueryResponse = async function (obj, req) {
-    logger.info("*" + arguments.callee.name);
-    // selected version
-    if (typeof obj.SELECTED_VERSION !== 'undefined') {
-        logger.info("Selected Version is " + obj.SELECTED_VERSION);
-        // check the version
-    }
+var parseQueryResponse = async function (obj, req, kid = null) {
+    try {
+        //logger.info("*" + arguments.callee.name);
+        // selected version
+        if (typeof obj.SELECTED_VERSION !== 'undefined') {
+            logger.info("Selected Version is " + obj.SELECTED_VERSION);
+            // check the version
+        }
 
-    //verify token
-    logger.debug(obj.TOKEN);
-    let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
-    if (!isValidToken) {
-        logger.error("Claimed token is not valid.")
-    }
+        //verify token
+        logger.debug(obj.TOKEN);
+        let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+        if (!isValidToken) {
+            logger.error("Claimed token is not valid.")
+        }
 
-    logger.debug(obj.TA_LIST);
-    logger.debug(obj.UNNEEDED_TC_LIST);
-    //console.log(deleteFlg);
+        // ciphersuite
+        if (typeof obj.SELECTED_TEEP_CIPHER_SUITE !== 'undefined') {
+            logger.info("Selected Cipher Suite is " + obj.SELECTED_TEEP_CIPHER_SUITE);
+            // check whether the claimed suite is available in TAM
+            // set the algorithm and key according to the claimed suite
+        }
 
-    // let installed = false;
-    // if (Array.isArray(obj.TA_LIST)) {
-    //     obj.TA_LIST.filter(x => {
-    //         installed = (x === trustedAppUUID);
-    //     });
-    // }
+        // attestation
+        if (typeof obj.ATTESTATION_PAYLOAD_FORMAT !== 'undefined') {
+            logger.info("Evidence format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
+        }
+        if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
+            logger.info("QueryResponse contains Evidence.");
+            let eat_payload = await rats.verifyEAT(obj.EVIDENCE);
+            logger.info(eat_payload);
+        }
 
-    // ciphersuite
-    if (typeof obj.SELECTED_CIPHER_SUITE !== 'undefined') {
-        logger.info("Selected Cipher Suite is " + obj.SELECTED_CIPHER_SUITE);
-        // check whether the claimed suite is available in TAM
-        // set the algorithm and key according to the claimed suite
-    }
+        if (typeof obj.TC_LIST !== 'undefined') {
+            logger.info("QueryResponse contains tc-list:");
+            logger.debug(obj.TC_LIST);
+        }
 
-    // attestation
-    if (typeof obj.EVIDENCE_FORMAT !== 'undefined') {
-        logger.info("Evidence format is " + obj.EVIDENCE_FORMAT);
-    }
-    if (typeof obj.EVIDENCE !== 'undefined') {
-        logger.info("QueryResponse contains attestation payload.");
-        let eat_payload = await rats.verifyEAT(obj.EVIDENCE);
-        logger.info(eat_payload);
-    } else {
-        logger.info("QueryResponse doesn't have attestation payload.");
-    }
+        // building the response
+        let trustedAppUpdate = new Object();
+        trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
+        trustedAppUpdate.TOKEN = await tokenManager.generateToken();
 
-    // building the response
-    let trustedAppUpdate = new Object();
-    trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
-    trustedAppUpdate.TOKEN = await tokenManager.generateToken();
+        // choosing update rule from rules.json
+        let deviceName;
+        if (keyManager.getDeviceNamebyKid(kid) !== undefined) { // choose by QueryResponse's header kid
+            deviceName = keyManager.getDeviceNamebyKid(kid);
+        }
+        let rule = null;
+        if (deviceName in rules) {
+            rule = rules[deviceName];
+            logger.info("Use " + deviceName + "'s rule.");
+        } else {
+            logger.error("cannot find [" + deviceName + "] device rule in config.json.");
+            // temporary choosing
+            let temp = Object.entries(rules)[0];
+            rule = rules[temp[0]];
+            logger.warn("Use " + temp[0] + "'s rule.");
+        }
 
-    // choosing install/remove TA along with rules.json
-    let deviceId = "teep-agent"; // set by attestation result
-    console.log(rules);
-    let rule = null;
-    if (deviceId in rules) {
-        rule = rules[deviceId];
-    } else {
-        logger.error("cannot find device rule in config.json");
-    }
-    console.log(rule.rules);
+        logger.debug(rule.rules);
 
-    // retrieve the responsed condition
-    logger.debug(obj.TA_LIST);
-    // obj.TA_LIST.forEach(x => x.forEach((val,key)=>console.log(val + " from " + key)));
-    let cond_arr = [];
-    obj.TA_LIST.map(x => {
-        // x is Map (component-id => [* SUIT_Component_Identifier])
-        // SUIT_Component_Identifier is bstr array
-        let SUIT_idenfiers = x.get(16);
-        let arr = [];
-        SUIT_idenfiers.forEach(y => arr.push(Buffer.from(y)));
-        cond_arr.push(arr);
-    });
-    logger.debug(cond_arr);
+        // parse requested-tc-list
+        let cond_arr = [];
 
-    // translate rule's list to Buffer array
-    let tmp_rules = [];
-    let tmp_updates = []; // update field's array
-    rule.rules.forEach(x => {
-        if (x.installed !== null) {
-            let arr = x.installed.map(y => {
-                return y.map(z => Buffer.from(z, 'hex'));
+        if (obj.REQUESTED_TC_LIST) {
+            //logger.debug(obj.REQUESTED_TC_LIST);
+            cond_arr = obj.REQUESTED_TC_LIST.map(x => {
+                // x is Map (component-id => [* SUIT_Component_Identifier])
+                // SUIT_Component_Identifier is bstr array
+                let SUIT_idenfiers = x.get(16);
+                let merged_identifier = SUIT_idenfiers.reduce((val, merged) => {
+                    merged = Buffer.concat(Buffer.from(val));
+                }); //
+                //logger.debug(merged_identifier);
+                return merged_identifier;
             });
-            tmp_rules.push(arr);
-            tmp_updates.push(x.update);
+        } else {
+            // requested-tc-list isn't set in QueryRequest.
+            cond_arr = null;
         }
-    });
-    logger.debug(tmp_rules);
-    logger.debug(tmp_updates);
+        //logger.debug(cond_arr);
 
-    // seek the matched rule
-    let update_rule = null;
-    let i = 0;
-    update_rule = tmp_rules.find((x, index) => {
-        console.log(x); console.log(cond_arr); console.log(JSON.stringify(x) == JSON.stringify(cond_arr));
-        if (JSON.stringify(x) == JSON.stringify(cond_arr)) {
-            i = index;
-            return true;
-        }
-    });
-    logger.debug(update_rule);
-    logger.debug(tmp_updates[i]);
+        // seek the matched condition in rules
+        let matchedRule = rule.rules.find(x => {
+            if (x.requested == null) {
+                return;
+            }
+            let requestedRuleArr = x.requested.map(y => { return Buffer.from(y); });
+            // compare arrays
+            if (cond_arr.length !== requestedRuleArr.length) {
+                return;
+            }
+            let srt_cond_arr = cond_arr.slice().sort();
+            let srt_rule_arr = requestedRuleArr.slice().sort();
+            for (let i = 0; i < srt_cond_arr.length; i++) {
+                if (!srt_cond_arr[i].equals(srt_rule_arr[i])) {
+                    return;
+                }
+            }
+            return x.update;
+        });
 
-    if (update_rule !== null) {
-        trustedAppUpdate["manifest-list"] = [];
-        // embed the SUIT manifests
-        for (const target of tmp_updates[i]) {
-            let suitContents = fs.readFileSync('./TAs/' + target);
-            trustedAppUpdate["manifest-list"].push(suitContents);
+        if (cond_arr == null) {
+            // when requested-tc-list isn't 
+            let no_requested_rule = rule.rules.find(x => { if (x.requested == null) { return x; } });
+            matchedRule = no_requested_rule !== undefined ? no_requested_rule : undefined;
         }
+
+        logger.debug("Use the following rule: " + matchedRule);
+
+        if (matchedRule) {
+            trustedAppUpdate["manifest-list"] = [];
+            // embed the SUIT manifests
+            for (const target of matchedRule.update) {
+                let suitContents = fs.readFileSync('./TAs/' + target);
+                trustedAppUpdate["manifest-list"].push(suitContents);
+            }
+        } else {
+            logger.warn("TAM cannot find a valid rule corresponded with requested-tc-list. Update message doesn't contain any SUIT manifests.");
+        }
+
+        return trustedAppUpdate;
+    } catch (err) {
+        logger.error(err);
+        return null;
     }
-
-    return trustedAppUpdate;
 }
 
 var parseSuccessMessage = async function (obj) {
@@ -363,34 +379,36 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
                 receivedObj[CBORLabels[6]] = receivedObj[CBORLabels[6]].toString('hex');
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // ta-list Buffer=>String
-                // receivedObj[CBORLabels[7]] = receivedObj[CBORLabels[7]].map(function (val) {
-                //     return val.toString('hex');
-                // });
-                // receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
-                receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
-                logger.debug(receivedObj.TA_LIST);
+            if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // tc-list array
+                receivedObj.TC_LIST = receivedObj[CBORLabels[7]];
+                //logger.debug(receivedObj.TC_LIST);
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
+            if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-manifest-list Buffer=>String
                 receivedObj[CBORLabels[14]] = receivedObj[CBORLabels[14]].map(function (val) {
                     return val.toString('hex');
                 });
-                receivedObj.UNNEEDED_TC_LIST = receivedObj[CBORLabels[14]];
+                receivedObj.UNNEEDED_MANIFEST_LIST = receivedObj[CBORLabels[14]];
             }
             if (receivedObj.hasOwnProperty(CBORLabels[19])) {
                 receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
             }
+            if (receivedObj.hasOwnProperty(CBORLabels[13]) && Array.isArray(receivedObj[CBORLabels[13]])) { // requested-tc-list
+                receivedObj.REQUESTED_TC_LIST = receivedObj[CBORLabels[13]];
+            }
             if (receivedObj.hasOwnProperty(CBORLabels[12])) {
-                receivedObj.EVIDENCE_FORMAT = receivedObj[CBORLabels[12]]; //text
+                receivedObj.ATTESTATION_PAYLOAD_FORMAT = receivedObj[CBORLabels[12]]; //text
             }
             if (receivedObj.hasOwnProperty(CBORLabels[6])) {
-                receivedObj.EVIDENCE = receivedObj[CBORLabels[6]]; // bstr
+                receivedObj.ATTESTATION_PAYLOAD = receivedObj[CBORLabels[6]]; // bstr
             }
             if (receivedObj.hasOwnProperty(CBORLabels[4])) {
-                receivedObj.SELECTED_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
+                receivedObj.SELECTED_TEEP_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
             }
             if (receivedObj.hasOwnProperty(CBORLabels[5])) {
                 receivedObj.SELECTED_VERSION = receivedObj[CBORLabels[5]]; // array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[18])) {
+                receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
             }
             break;
         case TEEP_TYPE_teep_success: // Success

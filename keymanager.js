@@ -10,6 +10,7 @@ const log4js = require('log4js');
 const logger = log4js.getLogger('keymanager.js');
 logger.level = 'debug';
 var configJson = require('./config.json');
+var rulesJson = require('./rules.json');
 
 var keyFilenameConfig = {
     "TAM_priv": "",
@@ -27,15 +28,20 @@ var keyChain = {
     "Verify": null
 };
 
-module.exports.diag = () => {
-    console.log("hogehoge");
-    return;
-}
+// Agent Public Key's
+let agentPubKeyFilenames = {}
+let agentPubKeys = {}; // kid => filename
+let agentKid2DeviceName = {}; // kid => device name 
 
 module.exports.loadConfig = () => {
     logger.info("Loading KeyConfig");
     keyFilenameConfig = configJson.key;
     logger.debug(keyFilenameConfig);
+    // rulesJson format check is needed
+    Object.keys(rulesJson).forEach(function (x) {
+        agentPubKeyFilenames[x] = rulesJson[x].key;
+    });
+    logger.debug(agentPubKeyFilenames);
     return;
 }
 
@@ -79,6 +85,28 @@ module.exports.loadKeyBinary = () => {
         });
     });
     logger.info("Key binary loaded");
+    // Agent Public Key binary loading
+    Object.keys(agentPubKeyFilenames).forEach(function (x) {
+        logger.info("Load Agent key " + x);
+        let keyString = fs.readFileSync("./key/" + agentPubKeyFilenames[x], function (err, data) {
+            if (err) {
+                logger.error("load Agent Public key string " + x);
+                logger.error(err);
+                return;
+            }
+            logger.debug(data);
+        });
+        let keyObj = JSON.parse(keyString);
+        if (keyObj.hasOwnProperty("kid")) {
+            agentPubKeys[keyObj.kid] = keyString;
+            agentKid2DeviceName[keyObj.kid] = x;
+        } else {
+            logger.warn("the following Agent Public key doen't have kid: " + x);
+            agentPubKeys[x] = keyString; // temporary
+            agentKid2DeviceName[x] = x;
+        }
+    })
+    //logger.debug(agentPubKeys);
     return;
 }
 
@@ -88,4 +116,24 @@ module.exports.getKeyBinary = (keyName) => {
         return;
     }
     return keyChain[keyName];
+}
+
+module.exports.isStoredAgentKey = (kid) => {
+    return agentPubKeys.hasOwnProperty(kid);
+}
+
+module.exports.getAgentKeyBinary = (kid) => {
+    if (!agentPubKeys.hasOwnProperty(kid)) {
+        logger.error("no such Agent Public key " + kid);
+        return;
+    }
+    return agentPubKeys[kid];
+}
+
+module.exports.getDeviceNamebyKid = (kid) => {
+    if (!agentKid2DeviceName.hasOwnProperty(kid)) {
+        logger.error("no such Agent Public key " + kid);
+        return;
+    }
+    return agentKid2DeviceName[kid];
 }

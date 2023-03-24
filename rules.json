@@ -1,0 +1,47 @@
+{
+    "teep-agent": {
+        "key": "teep_agent_prime256v1_pub.jwk",
+        "rules": [
+            {
+                "requested": null,
+                "update": [
+                    "tc1.suit"
+                ]
+            },
+            {
+                "requested": [
+                    "8d82573a-926d-4754-9353-32dc29997f74"
+                ],
+                "update": [
+                    "tc2.suit"
+                ]
+            },
+            {
+                "requested": [
+                    "8d82573a-926d-4754-9353-32dc29997f74",
+                    "hogehoge_1234567890_pd"
+                ],
+                "update": null
+            }
+        ]
+    },
+    "intel_sgx_test": {
+        "key": "teep_agent_prime256v1_pub_kid.jwk",
+        "rules": [
+            {
+                "requested": null,
+                "update": [
+                    "tc1_sgxbin.suit"
+                ]
+            },
+            {
+                "requested": [
+                    "suit-enclave-hello.suit"
+                ],
+                "update": [
+                    "dummy2.ta"
+                ]
+            }
+        ]
+    }
+}
