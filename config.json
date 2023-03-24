@@ -5,5 +5,11 @@
     "TEE_priv": "teep_agent_prime256v1.jwk",
     "TEE_pub": "teep_agent_prime256v1_pub.jwk",
     "Verify": "nverifier_pub.jwk"
+  },
+  "data-item-request": {
+    "attestation": true,
+    "trusted-components": true,
+    "extensions": false,
+    "suit-reports": false
   }
 }

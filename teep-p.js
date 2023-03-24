@@ -16,6 +16,7 @@ const { match } = require('assert');
 const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
 const rats = require('./rats');
+const tam_config = require('./config.json');
 
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 let rules;
@@ -25,6 +26,23 @@ try {
     logger.debug(rules);
 } catch (e) {
     logger.error('Failed to load rules.json :' + e);
+    return;
+}
+
+//ref. draft-ietf-teep-protocol-12#section-4.2
+const TEEP_DATA_REQUESTED_ITEMS = ["attestation", "trusted-components", "extensions", "suit-reports"];
+
+let request_config;
+// loading data-item-request config
+try {
+    request_config = tam_config["data-item-request"];
+    for (let i = 0; i < TEEP_DATA_REQUESTED_ITEMS.length; i++) {
+        if (typeof request_config[TEEP_DATA_REQUESTED_ITEMS[i]] !== "boolean") {
+            throw new Error("data-item-request config is invalid. Only boolean values are allowed.");
+        }
+    }
+} catch (e) {
+    logger.error('Failed to load config.json :' + e);
     return;
 }
 
@@ -110,11 +128,20 @@ var initMessage = async function () { //generate queryRequest Object
     //supported-suit-cose-profiles
     queryRequest["supported-suit-cose-profiles"] = [SUIT_SHA256_ES256_HPKE_A128GCM];
     //data-item-requested
-    queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
+    let data_item_request_val = TEEP_DATA_REQUESTED_ITEMS.reduce((val, key, i) => {
+        //logger.debug(request_config[key] + " " + val + " " + key + " " + i);
+        if (request_config[key]) {
+            return val | (1 << i);
+        } else {
+            return val;
+        }
+    }, 0);
+    queryRequest["data-item-requested"] = data_item_request_val;
 
     // rats
-    queryRequest["data-item-requested"] = 0b0011; // attestation(1) and trusted-components(2) are requested
-    queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
+    if (request_config["attestation"]) {
+        queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
+    }
 
     logger.debug(queryRequest);
     return queryRequest;
@@ -160,7 +187,7 @@ var parseQueryResponse = async function (obj, req, kid = null) {
             // check the version
         }
 
-        //verify token
+        // verify token
         logger.debug(obj.TOKEN);
         let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
         if (!isValidToken) {
@@ -175,18 +202,23 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         }
 
         // attestation
-        if (typeof obj.ATTESTATION_PAYLOAD_FORMAT !== 'undefined') {
-            logger.info("Evidence format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
-        }
-        if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
-            logger.info("QueryResponse contains Evidence.");
-            let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, kid);
-            logger.info(eat_payload);
+        if (request_config["attestation"]) {
+            if (typeof obj.ATTESTATION_PAYLOAD_FORMAT !== 'undefined') {
+                logger.info("Evidence format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
+            }
+            if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
+                logger.info("QueryResponse contains Evidence.");
+                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, kid);
+                logger.info(eat_payload);
+            }
         }
 
-        if (typeof obj.TC_LIST !== 'undefined') {
-            logger.info("QueryResponse contains tc-list:");
-            logger.debug(obj.TC_LIST);
+        // trusted-components
+        if (request_config["trusted-components"]) {
+            if (typeof obj.TC_LIST !== 'undefined') {
+                logger.info("QueryResponse contains tc-list:");
+                logger.debug(obj.TC_LIST);
+            }
         }
 
         // building the response
@@ -204,7 +236,7 @@ var parseQueryResponse = async function (obj, req, kid = null) {
             rule = rules[deviceName];
             logger.info("Use " + deviceName + "'s rule.");
         } else {
-            logger.error("cannot find [" + deviceName + "] device rule in config.json.");
+            logger.error("cannot find [" + deviceName + "] device rule in rules.json.");
             // temporary choosing
             let temp = Object.entries(rules)[0];
             rule = rules[temp[0]];
@@ -386,9 +418,13 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
                 receivedObj[CBORLabels[6]] = receivedObj[CBORLabels[6]].toString('hex');
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // tc-list array
-                receivedObj.TC_LIST = receivedObj[CBORLabels[7]];
-                //logger.debug(receivedObj.TC_LIST);
+            if (request_config["trusted-components"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // tc-list array
+                    receivedObj.TC_LIST = receivedObj[CBORLabels[7]];
+                    //logger.debug(receivedObj.TC_LIST);
+                } else {
+                    logger.error("QueryResponse doesn't contain a trusted-component list while tc-list is requested in QueryRequest.");
+                }
             }
             if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-manifest-list Buffer=>String
                 receivedObj[CBORLabels[14]] = receivedObj[CBORLabels[14]].map(function (val) {
@@ -402,11 +438,15 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[13]) && Array.isArray(receivedObj[CBORLabels[13]])) { // requested-tc-list
                 receivedObj.REQUESTED_TC_LIST = receivedObj[CBORLabels[13]];
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[12])) {
-                receivedObj.ATTESTATION_PAYLOAD_FORMAT = receivedObj[CBORLabels[12]]; //text
-            }
-            if (receivedObj.hasOwnProperty(CBORLabels[6])) {
-                receivedObj.ATTESTATION_PAYLOAD = receivedObj[CBORLabels[6]]; // bstr
+            if (request_config["attestation"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[12])) {
+                    receivedObj.ATTESTATION_PAYLOAD_FORMAT = receivedObj[CBORLabels[12]]; //text
+                }
+                if (receivedObj.hasOwnProperty(CBORLabels[6])) {
+                    receivedObj.ATTESTATION_PAYLOAD = receivedObj[CBORLabels[6]]; // bstr
+                } else {
+                    logger.error("QueryResponse doesn't contain an Attestation payload while attestation is requested in QueryRequest.");
+                }
             }
             if (receivedObj.hasOwnProperty(CBORLabels[4])) {
                 receivedObj.SELECTED_TEEP_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
@@ -414,8 +454,12 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[5])) {
                 receivedObj.SELECTED_VERSION = receivedObj[CBORLabels[5]]; // array
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[18])) {
-                receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+            if (request_config["suit-reports"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[18])) {
+                    receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+                } else {
+                    logger.error("QueryResponse doesn't contain suit-reports while suit-report is requested in QueryRequest.");
+                }
             }
             break;
         case TEEP_TYPE_teep_success: // Success
