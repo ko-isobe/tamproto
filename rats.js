@@ -5,8 +5,9 @@
 */
 
 const cbor = require('cbor');
-var cose = require('cose-js');
+const cose = require('cose-js');
 const fs = require('fs');
+const crypto = require('crypto');
 //const { request } = require('./app');
 const keyManager = require('./keymanager.js');
 const log4js = require('log4js');
@@ -109,11 +110,11 @@ module.exports.consumeChallenge = async (challenge) => {
     return true
 }
 
-module.exports.verifyEAT = async (eat) => {
+module.exports.verifyEAT = async (eat, kid = null) => {
+    // See Section 7.1.1.1 in draft-ietf-teep-protocol-12
     try {
         let eat_buf = await cose.sign.verify(eat, verifyKey);
         let eat_payload = cbor.decodeFirstSync(eat_buf);
-        //logger.debug(eat_payload);
         // check and parse EAT format
         let eat_object = parseCborMapHelper(eat_payload);
         // mandatory claims check
@@ -122,6 +123,15 @@ module.exports.verifyEAT = async (eat) => {
                 logger.error(`Obtained EAT doesn't have a mandatory claim: ${x}`);
             }
         });
+        // check cnf
+        if (eat_object.cnf) {
+            let isValidCnf = verifyCnf(eat_object.cnf);
+            if (!isValidCnf) {
+                logger.error("cnf claim in EAT isn't valid.");
+            }else{
+                logger.info("cnf in EAT is valid.");
+            }
+        }
         // check challenge
         let isValidChallenge = await this.consumeChallenge(eat_object.nonce);
         return eat_object;
@@ -156,4 +166,35 @@ const findByClaimKey = function (claimKey) {
         }
     }
     return searchKey;
+}
+
+const verifyCnf = function (payload, kid) {
+    // payload as cnf defined RFC 8747
+    if (payload.has(3)) { //3:kid
+        let claimed_kid = Buffer.from(payload.get(3)).toString('hex'); // claimed_kid defined in TEEP EAT profile is hash of Agent public key
+        logger.debug(`claimed_kid is:${claimed_kid}`);
+        // Calculate TAM-holding Agent public key
+        let keyObj;
+        if (kid == null) {
+            keyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
+        } else {
+            keyObj = JSON.parse(keyManager.getAgentKeyBinary(kid));
+        }
+        let keyX = Buffer.from(keyObj.x, 'base64');
+        let keyY = Buffer.from(keyObj.y, 'base64');
+        let concatKeyValue = keyX.toString('hex') + keyY.toString('hex');
+        //logger.debug(concatKeyValue);
+        const hash = crypto.createHash('sha256');
+        hash.update(concatKeyValue,'hex');
+        let hashVal = hash.digest('hex');
+        logger.debug(`holding_key is:${hashVal}`);
+        //compare claimed kid and calculated hash of holding Agent public key
+        return claimed_kid === hashVal;
+    } else if (payload.has(1) || payload.has(2)) { // 1:COSE_Key, 2:Encrypted_COSE_Key
+        // TEEP EAT profie doesn't support these key types.
+        return false;
+    } else {
+        logger.error("The claimed cnf isn't valid format.");
+        return false;
+    }
 }

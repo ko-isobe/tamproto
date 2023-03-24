@@ -173,7 +173,7 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         }
         if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
             logger.info("QueryResponse contains Evidence.");
-            let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD);
+            let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, kid);
             logger.info(eat_payload);
         }
 
