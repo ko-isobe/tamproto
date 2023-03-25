@@ -210,7 +210,7 @@ var parseQueryResponse = async function (obj, req, kid = null) {
             }
             if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
                 logger.info("QueryResponse contains Evidence.");
-                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD,obj.ATTESTATION_PAYLOAD_FORMAT, kid);
+                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, obj.ATTESTATION_PAYLOAD_FORMAT, kid);
                 logger.info(eat_payload);
             }
         }
@@ -269,29 +269,30 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         //logger.debug(cond_arr);
 
         // seek the matched condition in rules
-        let matchedRule = rule.rules.find(x => {
-            if (x.requested == null) {
-                return;
-            }
-            let requestedRuleArr = x.requested.map(y => { return Buffer.from(y); });
-            // compare arrays
-            if (cond_arr.length !== requestedRuleArr.length) {
-                return;
-            }
-            let srt_cond_arr = cond_arr.slice().sort();
-            let srt_rule_arr = requestedRuleArr.slice().sort();
-            for (let i = 0; i < srt_cond_arr.length; i++) {
-                if (!srt_cond_arr[i].equals(srt_rule_arr[i])) {
-                    return;
-                }
-            }
-            return x.update;
-        });
-
+        let matchedRule;
         if (cond_arr == null) {
             // when requested-tc-list isn't 
             let no_requested_rule = rule.rules.find(x => { if (x.requested == null) { return x; } });
             matchedRule = no_requested_rule !== undefined ? no_requested_rule : undefined;
+        } else {
+            matchedRule = rule.rules.find(x => {
+                if (x.requested == null) {
+                    return;
+                }
+                let requestedRuleArr = x.requested.map(y => { return Buffer.from(y); });
+                // compare arrays
+                if (cond_arr.length !== requestedRuleArr.length) {
+                    return;
+                }
+                let srt_cond_arr = cond_arr.slice().sort();
+                let srt_rule_arr = requestedRuleArr.slice().sort();
+                for (let i = 0; i < srt_cond_arr.length; i++) {
+                    if (!srt_cond_arr[i].equals(srt_rule_arr[i])) {
+                        return;
+                    }
+                }
+                return x.update;
+            });
         }
 
         logger.debug("Use the following rule: " + matchedRule);
