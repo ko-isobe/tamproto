@@ -118,9 +118,10 @@ var initMessage = async function () { //generate queryRequest Object
     // let initTokenView = new DataView(initToken);
     // initTokenView.setUint32(0, 0x77777777); //2004318071
     // initTokenView.setUint32(4, 0x77777777);
-    initToken = await tokenManager.generateToken();
-    queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
-
+    if (!request_config['attestation']) { // When attestation bit is on, token isn't embbeded in QueryRequest.
+        initToken = await tokenManager.generateToken();
+        queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
+    }
     //supported-freshness-mechanisms
     queryRequest["supported-freshness-mechanisms"] = [TEEP_FRESHNESS_NONCE];
     //supported-cipher-suites
@@ -188,10 +189,12 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         }
 
         // verify token
-        logger.debug(obj.TOKEN);
-        let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
-        if (!isValidToken) {
-            logger.error("Claimed token is not valid.")
+        if (!request_config["attestation"]) {
+            logger.debug(obj.TOKEN);
+            let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+            if (!isValidToken) {
+                logger.error("Claimed token is not valid.")
+            }
         }
 
         // ciphersuite
@@ -435,9 +438,14 @@ var parseCborArrayHelper = function (arr) {
                 });
                 receivedObj.UNNEEDED_MANIFEST_LIST = receivedObj[CBORLabels[14]];
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[19])) {
-                receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
+            if (!request_config["attestation"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[19])) {
+                    receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
+                } else {
+                    logger.warn("QueryResponse doesn't contain a token.");
+                }
             }
+
             if (receivedObj.hasOwnProperty(CBORLabels[13]) && Array.isArray(receivedObj[CBORLabels[13]])) { // requested-tc-list
                 receivedObj.REQUESTED_TC_LIST = receivedObj[CBORLabels[13]];
             }
