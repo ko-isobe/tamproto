@@ -204,11 +204,13 @@ var parseQueryResponse = async function (obj, req, kid = null) {
         // attestation
         if (request_config["attestation"]) {
             if (typeof obj.ATTESTATION_PAYLOAD_FORMAT !== 'undefined') {
-                logger.info("Evidence format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
+                logger.info("Attestation payload format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
+            } else {
+                logger.info("Attestation payload format isn't contained in QueryRequest. Payload is supposed to be application/eat+cwt; eat_profile=https://datatracker.ietf.org/doc/html/draft-ietf-teep-protocol-12");
             }
             if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
                 logger.info("QueryResponse contains Evidence.");
-                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, kid);
+                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD,obj.ATTESTATION_PAYLOAD_FORMAT, kid);
                 logger.info(eat_payload);
             }
         }

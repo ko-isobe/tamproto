@@ -110,34 +110,40 @@ module.exports.consumeChallenge = async (challenge) => {
     return true
 }
 
-module.exports.verifyEAT = async (eat, kid = null) => {
+module.exports.verifyEAT = async (eat, fmt, kid = null) => {
     // See Section 7.1.1.1 in draft-ietf-teep-protocol-12
-    try {
-        let eat_buf = await cose.sign.verify(eat, verifyKey);
-        let eat_payload = cbor.decodeFirstSync(eat_buf);
-        // check and parse EAT format
-        let eat_object = parseCborMapHelper(eat_payload);
-        // mandatory claims check
-        mandatoryClaims.forEach(x => {
-            if (!eat_object.hasOwnProperty(x)) {
-                logger.error(`Obtained EAT doesn't have a mandatory claim: ${x}`);
+    if (fmt == undefined || fmt == "application/eat+cwt; eat_profile=https://datatracker.ietf.org/doc/html/draft-ietf-teep-protocol-12") {
+        try {
+            let eat_buf = await cose.sign.verify(eat, verifyKey);
+            let eat_payload = cbor.decodeFirstSync(eat_buf);
+            // check and parse EAT format
+            let eat_object = parseCborMapHelper(eat_payload);
+            // mandatory claims check
+            mandatoryClaims.forEach(x => {
+                if (!eat_object.hasOwnProperty(x)) {
+                    logger.error(`Obtained EAT doesn't have a mandatory claim: ${x}`);
+                }
+            });
+            // check cnf
+            if (eat_object.cnf) {
+                let isValidCnf = verifyCnf(eat_object.cnf);
+                if (!isValidCnf) {
+                    logger.error("cnf claim in EAT isn't valid.");
+                } else {
+                    logger.info("cnf in EAT is valid.");
+                }
             }
-        });
-        // check cnf
-        if (eat_object.cnf) {
-            let isValidCnf = verifyCnf(eat_object.cnf);
-            if (!isValidCnf) {
-                logger.error("cnf claim in EAT isn't valid.");
-            } else {
-                logger.info("cnf in EAT is valid.");
-            }
+            // check challenge
+            let isValidChallenge = await this.consumeChallenge(eat_object.nonce);
+            return eat_object;
+        } catch (e) {
+            logger.error('verify error', e.toString());
         }
-        // check challenge
-        let isValidChallenge = await this.consumeChallenge(eat_object.nonce);
-        return eat_object;
-    } catch (e) {
-        logger.error('verify error', e.toString());
+    } else {
+        logger.error("Unsupported Attestation payload format :" + fmt);
+        return;
     }
+
 }
 
 const parseCborMapHelper = function (obj) {
