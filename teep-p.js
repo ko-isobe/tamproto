@@ -387,14 +387,14 @@ var buildCborArray = function (obj) {
         case TEEP_TYPE_update: // TrustedAppUpdate
             logger.debug(obj);
             let TAUpdateOption = new cbor.Map();
-            if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
-                TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
-            }
             TAUpdateOption.set(cborLtoI['token'], obj.TOKEN); // 20: token * this token is not neccessary
             if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
                 TAUpdateOption.set(cborLtoI['tc-list'], obj.TC_LIST);
             }
             // * $$update-extensions and * $$teep-option-extensions added if needed.
+            if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
+                TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
+            }
             cborArray.push(TAUpdateOption);
             break;
         default:
