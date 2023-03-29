@@ -126,7 +126,7 @@ module.exports.verifyEAT = async (eat, fmt, kid = null) => {
             });
             // check cnf
             if (eat_object.cnf) {
-                let isValidCnf = verifyCnf(eat_object.cnf);
+                let isValidCnf = verifyCnf(eat_object.cnf, kid);
                 if (!isValidCnf) {
                     logger.error("cnf claim in EAT isn't valid.");
                 } else {
