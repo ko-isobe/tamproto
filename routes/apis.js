@@ -215,7 +215,7 @@ router.post('/tam_cose', async function (req, res, next) {
       let cborResponseArray = teepP.buildCborArray(ret);
       logger.debug(cborResponseArray);
       //logger.debug(TamKeyObj);
-      let plainPayload = cbor.encode(cborResponseArray);
+      let plainPayload = await cbor.encodeAsync(cborResponseArray);
       let headers = {
          'p': { 'alg': 'ES256' },
          'u': { 'kid': '' }
