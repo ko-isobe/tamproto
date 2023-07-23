@@ -11,5 +11,6 @@
     "trusted-components": true,
     "extensions": false,
     "suit-reports": false
-  }
+  },
+  "tam_attestation": true
 }

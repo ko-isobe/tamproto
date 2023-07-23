@@ -13,6 +13,7 @@ var cose = require('cose-js');
 var fs = require('fs');
 require('express-async-errors');
 var keyManager = require('../keymanager.js');
+var configJson = require('../config.json');
 const log4js = require('log4js');
 const logger = log4js.getLogger('apis.js');
 logger.level = 'debug';
@@ -43,7 +44,7 @@ let teepImplHandler = async function (req, body, kid = null) {
       //body is empty
       logger.info("TAM API launch");
       //Call ProcessConnect API
-      ret = await teepP.initMessage();
+      ret = await teepP.initMessage(configJson.tam_attestation);
       return ret;
    } else {
       logger.info("TAM ProcessTeepMessage instance");

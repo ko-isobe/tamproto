@@ -204,3 +204,45 @@ const verifyCnf = function (payload, kid) {
         return false;
     }
 }
+
+module.exports.generateTAM_EAT_Evidence = async function (challenge) {
+    let EvidenceSignKey = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
+    let evidenceBody = new Map();
+
+    evidenceBody.set(10, challenge); // EAT nonce
+    evidenceBody.set(260, "1.0.0"); // EAT hardware version
+    evidenceBody.set(256, Buffer.from('010000000000','hex')); // EAT ueid
+    evidenceBody.set(258, Buffer.from('1234567890abcdef','hex')); // EAT oemid
+    evidenceBody.set(259, Buffer.from('87654321','hex')); // EAT hwmodel
+    // evidenceBody.set()) // EAT manifests
+
+    let plainPayload = cbor.encode(evidenceBody);
+    let headers = {
+        'p': { 'alg': 'ES256' },
+        'u': { 'kid': '' }
+    };
+    if (EvidenceSignKey.hasOwnProperty('crv')) {
+        if (EvidenceSignKey.crv === 'P-256') {
+            headers.p = { 'alg': 'ES256' };
+        } else if (VerifierSignKey.crv === 'Ed25519') {
+            headers.p = { 'alg': 'EdDSA' };
+        }
+    }
+    if (EvidenceSignKey.hasOwnProperty('kid')) { // if TAM_priv has kid, set the same kid in COSE header
+        headers.u = { 'kid': EvidenceSignKey.kid };
+    }
+    let signer = {
+        'key': {
+            'd': Buffer.from(EvidenceSignKey.d, 'base64')
+        }
+    };
+    try {
+        let cosePayload = await cose.sign.create(headers, plainPayload, signer);
+        //console.log(cosePayload.toString('hex'));
+        //console.log(cosePayload);
+        return cosePayload;
+    } catch (e) {
+        console.log(e);
+    }
+
+}

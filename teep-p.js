@@ -17,6 +17,7 @@ const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
 const rats = require('./rats');
 const tam_config = require('./config.json');
+const { query } = require('express');
 
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 let rules;
@@ -98,6 +99,7 @@ const TEEP_ERR_UNSUPPORTED_FRESHNESS_MECHANISMS = 3;
 const TEEP_ERR_UNSUPPORTED_MSG_VERSION = 4;
 const TEEP_ERR_UNSUPPORTED_CIPHER_SUITES = 5;
 const TEEP_ERR_BAD_CERTIFICATE = 6;
+const TEEP_ERR_ATTESTATION_REQUIRED = 7;
 const TEEP_ERR_CERTIFICATE_EXPIRED = 9;
 const TEEP_ERR_TEMPORARY_ERROR = 10;
 const TEEP_ERR_MANIFEST_PROCESSING_FAILED = 17;
@@ -107,7 +109,7 @@ var init = function () {
     return false;
 }
 
-var initMessage = async function () { //generate queryRequest Object
+var initMessage = async function (tam_attestation = false, challenge) { //generate queryRequest Object
     // see draft-ietf-teep-protocol-06#section-4.4
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
@@ -144,6 +146,13 @@ var initMessage = async function () { //generate queryRequest Object
         queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
     }
 
+    // embedding TAM's attestation data
+    if (tam_attestation) {
+        // If you need embedding ARs, modify following codes.
+        queryRequest["attestation-payload"] = await rats.generateTAM_EAT_Evidence(challenge);
+        //queryRequest["attestation-payload-format"]
+    }
+
     logger.debug(queryRequest);
     return queryRequest;
 }
@@ -168,8 +177,10 @@ var parse = async function (obj, req, kid = null) {
             break;
         case TEEP_TYPE_teep_error:
             // Error
-            await parseErrorMessage(obj);
-            return;
+            ret = await parseErrorMessage(obj);
+            if (ret == null) {
+                return;
+            }
             break;
         default:
             logger.error("ERR!: cannot handle this message type :" + obj.TYPE);
@@ -362,6 +373,18 @@ var parseErrorMessage = async function (obj) {
         logger.info("Supported Versions are " + obj.VERSIONS);
     }
 
+    // Agent requires TAM's attestation
+    if (obj.ERROR_CODE == TEEP_ERR_ATTESTATION_REQUIRED) {
+        logger.info("TEEP Agent requires TAM's attestation.");
+        let queryRequest;
+        if (obj.CHALLENGE) {
+            queryRequest = await initMessage(true, obj.CHALLENGE);
+        } else {
+            queryRequest = await initMessage(true);
+        }
+        return queryRequest;
+    }
+
     return;
 }
 
@@ -496,7 +519,7 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[19])) {
                 receivedObj.TOKEN = receivedObj[CBORLabels[19]];
             }
-            receivedObj.ERROR_CODE = arr[2];
+            receivedObj.ERROR_CODE = arr[2]; //mandatory
             if (receivedObj.hasOwnProperty(CBORLabels[0])) {
                 receivedObj.SUPPORTED_CIPHER_SUITES = receivedObj[CBORLabels[0]]; //array
             }
@@ -508,6 +531,9 @@ var parseCborArrayHelper = function (arr) {
             }
             if (receivedObj.hasOwnProperty(CBORLabels[18])) {
                 receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[2])) {
+                receivedObj.CHALLENGE = receivedObj[CBORLabels[2]];
             }
             break;
         default:
