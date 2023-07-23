@@ -532,8 +532,8 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[18])) {
                 receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[2])) {
-                receivedObj.CHALLENGE = receivedObj[CBORLabels[2]];
+            if (receivedObj.hasOwnProperty(CBORLabels[1])) {
+                receivedObj.CHALLENGE = receivedObj[CBORLabels[1]];
             }
             break;
         default:
