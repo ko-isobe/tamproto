@@ -186,16 +186,10 @@ const verifyCnf = function (payload, kid) {
         } else {
             keyObj = JSON.parse(keyManager.getAgentKeyBinary(kid));
         }
-        let keyX = Buffer.from(keyObj.x, 'base64');
-        let keyY = Buffer.from(keyObj.y, 'base64');
-        let concatKeyValue = keyX.toString('hex') + keyY.toString('hex');
-        //logger.debug(concatKeyValue);
-        const hash = crypto.createHash('sha256');
-        hash.update(concatKeyValue, 'hex');
-        let hashVal = hash.digest('hex');
-        logger.debug(`holding_key is:${hashVal}`);
+        let holdingKeyThumb = calculateKeyThumbprintSHA256(keyObj);
+        logger.debug(`holding_key is:${holdingKeyThumb}`);
         //compare claimed kid and calculated hash of holding Agent public key
-        return claimed_kid === hashVal;
+        return claimed_kid === holdingKeyThumb;
     } else if (payload.has(1) || payload.has(2)) { // 1:COSE_Key, 2:Encrypted_COSE_Key
         // TEEP EAT profie doesn't support these key types.
         return false;
@@ -245,4 +239,38 @@ module.exports.generateTAM_EAT_Evidence = async function (challenge) {
         console.log(e);
     }
 
+}
+
+const calculateKeyThumbprintSHA256 = function (obj) {
+    // ref. draft-ietf-cose-key-thumbprint-01
+    // IMPORTANT: Detereministic CBOR and specified elements are REQUIRED.
+    let retObj = new cbor.Map();
+    switch (obj.kty) {
+        case 1: // kty: OKP
+            retObj.set(1, obj.kty);  // 0x01
+            retObj.set(-1, obj.crv); // 0x20 (0b001_00001)
+            retObj.set(-2, Buffer.from(obj.x, 'hex')); // 0x21 (0b001_00010)
+            break;
+        case 2: // kty: EC2
+            retObj.set(1, obj.kty);
+            retObj.set(-1, obj.crv);
+            retObj.set(-2, Buffer.from(obj.x, 'hex'));
+            retObj.set(-3, Buffer.from(obj.y, 'hex')); // 0x22 (0b001_00011)
+            break;
+        case 3: // kty: RSA
+            retObj.set(1, obj.kty);
+            retObj.set(-1, Buffer.from(obj.n, 'hex'));
+            retObj.set(-2, Buffer.from(obj.e, 'hex'));
+            break;
+        default:
+            console.error("unsupported key type");
+            return null;
+    }
+    // console.log(cbor.encode(retObj).toString('hex')); 
+    let detCOSEKeyObj = cbor.encode(retObj);
+
+    // Hash
+    const hash = crypto.createHash('sha256');
+    hash.update(detCOSEKeyObj);
+    return hash.digest('hex');
 }
