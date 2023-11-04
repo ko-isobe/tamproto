@@ -108,6 +108,16 @@
                         </select>
                     </td>
                 </tr>
+                <tr>
+                    <td>Verifier Key</td>
+                    <td>
+                        <select name="verifier" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>" <% if (value.name === key_Verify){ %> selected <% } %>><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
             </table>
             <br>
             <input type="submit" value="Save" />

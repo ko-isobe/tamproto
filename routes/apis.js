@@ -13,6 +13,7 @@ var cose = require('cose-js');
 var fs = require('fs');
 require('express-async-errors');
 var keyManager = require('../keymanager.js');
+var configJson = require('../config.json');
 const log4js = require('log4js');
 const logger = log4js.getLogger('apis.js');
 logger.level = 'debug';
@@ -35,7 +36,7 @@ router.get('/', function (req, res, next) {
    res.send(param);
 });
 
-let teepImplHandler = async function (req, body) {
+let teepImplHandler = async function (req, body, kid = null) {
    // See teep-protocol-06#Section 6.1
    // Pass the request to teep-p.js and get the reseponse.
    let ret = null;
@@ -43,14 +44,14 @@ let teepImplHandler = async function (req, body) {
       //body is empty
       logger.info("TAM API launch");
       //Call ProcessConnect API
-      ret = await teepP.initMessage();
+      ret = await teepP.initMessage(configJson.tam_attestation);
       return ret;
    } else {
       logger.info("TAM ProcessTeepMessage instance");
       //Call ProcessTeepMessage API
-      ret = await teepP.parse(body, req);
+      ret = await teepP.parse(body, req, kid);
       logger.info("TAM ProcessTeepMessage response");
-      logger.debug(ret);
+      //logger.debug(ret);
       if (ret == null) {
          //invalid message from client device
          logger.warn("WARNING: Agent may sent invalid contents. TAM responses null."); // @TODO review this message
@@ -159,11 +160,29 @@ router.post('/tam_cose', async function (req, res, next) {
 
    //retrieve TAM private key
    let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
-   let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString());
+   let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString()); //use default Agent key
 
    if (req.headers['content-length'] != 0) { // request body is not null. Verify the TEEP Agent's signature
       //verify the cose
       try {
+         //check COSE_Sign1 Tag and choose Agent Public Key from COSE unprotected header's kid
+         let cose_object = cbor.decodeFirstSync(req.body);
+         if (cose_object.tag !== 18) { // is COSE_Sign1?
+            logger.debug(cose_object);
+            throw new Error("Received object isn't COSE_Sign1. tag is " + cose_object.tag);
+         }
+         let kid = null;
+         if (cose_object.value[1] instanceof Map) {
+            if (cose_object.value[1].has(4) && keyManager.isStoredAgentKey(Buffer.from(cose_object.value[1].get(4)).toString())) { // unprotected header has kid(4)
+               kid = Buffer.from(cose_object.value[1].get(4)).toString();
+               TeePubKeyObj = JSON.parse(keyManager.getAgentKeyBinary(kid)); // use obtained kid's Public key
+               logger.info("Use the Agent Public key (kid=" + kid + ")");
+            } else {
+               logger.warn("Received COSE doesn't have TAM-known kid in unprotected header.");
+            }
+         } else {
+            logger.info("Use default Agent Public key.");
+         }
          // verify
          // key loading 
          let verifyKey = {
@@ -173,10 +192,9 @@ router.post('/tam_cose', async function (req, res, next) {
             }
          };
          let cbor_payload = await cose.sign.verify(req.body, verifyKey);
-         //console.log(buf.toString('utf8'));
          parsedCbor = cbor.decodeFirstSync(cbor_payload);
          logger.debug(parsedCbor);
-         ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor));
+         ret = await teepImplHandler(req, teepP.parseCborArray(parsedCbor), kid);
       } catch (e) {
          logger.error("COSE parse error:" + e);
          res.status(400);
@@ -197,13 +215,13 @@ router.post('/tam_cose', async function (req, res, next) {
       //console.log(ret);
       let cborResponseArray = teepP.buildCborArray(ret);
       logger.debug(cborResponseArray);
-      logger.debug(TamKeyObj);
-      let plainPayload = cbor.encode(cborResponseArray);
+      //logger.debug(TamKeyObj);
+      let plainPayload = await cbor.encodeAsync(cborResponseArray);
       let headers = {
          'p': { 'alg': 'ES256' },
          'u': { 'kid': '' }
       };
-      if (TamKeyObj.hasOwnProperty('crv')) { 
+      if (TamKeyObj.hasOwnProperty('crv')) {
          if (TamKeyObj.crv === 'P-256') {
             headers.p = { 'alg': 'ES256' };
          } else if (TamKeyObj.crv === 'Ed25519') {

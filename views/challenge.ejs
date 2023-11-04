@@ -1,0 +1,65 @@
+<!-- /*
+* Copyright (c) 2020 SECOM CO., LTD. All Rights reserved.
+*
+* SPDX-License-Identifier: BSD-2-Clause
+*/-->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Challenge Table UI</title>
+</head>
+<style>
+    table {
+        border-collapse: collapse;
+    }
+
+    tr {
+        border-bottom: dashed #c8c8cb;
+    }
+
+    th {
+        background: #cbf266;
+        padding: 0 1em;
+    }
+
+    td {
+        text-align: center;
+        padding: 0.5em;
+    }
+</style>
+
+<body>
+    <h1>Challenge Index UI&nbsp;<span style="font-size: 0.5em;"><a href="./challenge">🔄Refresh</a></span></h1>
+    <hr>
+    <table>
+        <tr>
+            <th>recordID</th>
+            <th>Challenge</th>
+            <th>isUsed</th>
+            <th>createdAt</th>
+            <th>updatedAt</th>
+        </tr>
+        <% challenges.forEach(function(value) { %>
+            <tr>
+                <td>
+                    <%= value.id %>
+                </td>
+                <td>
+                    <%= value.challenge.toString('hex') %>
+                </td>
+                <td>
+                    <%= value.isUsed %>
+                </td>
+                <td>
+                    <%= value.createdAt %>
+                </td>
+                <td>
+                    <%= value.updatedAt %>
+                </td>
+            </tr>
+            <% }); %>
+    </table>
+</body>
+
+</html>

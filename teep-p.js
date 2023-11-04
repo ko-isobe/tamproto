@@ -9,20 +9,41 @@ const ip = require('ip');
 const cbor = require('cbor');
 const fs = require('fs');
 //const { request } = require('./app');
-const yaml = require('js-yaml');
 const tokenManager = require('./tokenmanager');
+const keyManager = require('./keymanager');
 const log4js = require('log4js');
+const { match } = require('assert');
 const logger = log4js.getLogger('teep-p.js');
 logger.level = 'debug';
+const rats = require('./rats');
+const tam_config = require('./config.json');
+const { query } = require('express');
 
 const trustedAppUUID = "8d82573a-926d-4754-9353-32dc29997f74";
 let rules;
 // loading update rules definition
 try {
-    rules = yaml.load(fs.readFileSync('./rules.yaml', 'utf8'));
-    console.log(rules);
+    rules = require('./rules.json');
+    logger.debug(rules);
 } catch (e) {
-    logger.error('Failed to load rules.yaml :' + e);
+    logger.error('Failed to load rules.json :' + e);
+    return;
+}
+
+//ref. draft-ietf-teep-protocol-12#section-4.2
+const TEEP_DATA_REQUESTED_ITEMS = ["attestation", "trusted-components", "extensions", "suit-reports"];
+
+let request_config;
+// loading data-item-request config
+try {
+    request_config = tam_config["data-item-request"];
+    for (let i = 0; i < TEEP_DATA_REQUESTED_ITEMS.length; i++) {
+        if (typeof request_config[TEEP_DATA_REQUESTED_ITEMS[i]] !== "boolean") {
+            throw new Error("data-item-request config is invalid. Only boolean values are allowed.");
+        }
+    }
+} catch (e) {
+    logger.error('Failed to load config.json :' + e);
     return;
 }
 
@@ -33,15 +54,15 @@ const TEEP_TYPE_update = 3;
 const TEEP_TYPE_teep_success = 5;
 const TEEP_TYPE_teep_error = 6;
 
-//ref. draft-ietf-teep-protocol-08#section-6 , ocsp-data is obsoleted.
-const CBORLabels = ['supported-cipher-suites', 'challenge', 'versions', null, 'selected-cipher-suite',
-    'selected-version', 'evidence', 'tc-list', 'ext-list', 'manifest-list',
-    'msg', 'err-msg', 'evidence-format', 'requested-tc-list', 'unneeded-tc-list',
-    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms'];
+//ref. draft-ietf-teep-protocol-12#section-6 
+const CBORLabels = ['supported-teep-cipher-suites', 'challenge', 'versions', 'supported-suit-cose-profiles', 'selected-teep-cipher-suite',
+    'selected-version', 'attestation-payload', 'tc-list', 'ext-list', 'manifest-list',
+    'msg', 'err-msg', 'attestation-payload-format', 'requested-tc-list', 'unneeded-manifest-list',
+    'component-id', 'tc-manifest-sequence-number', 'have-binary', 'suit-reports', 'token', 'supported-freshness-mechanisms', null, 'err-code'];
 const cborLtoI = CBORLabels.reduce(function (obj, key, idx) { return Object.assign(obj, { [key]: idx + 1 }) }, {}); //swap key,value
-logger.debug('TEEP Const Values array set as:', cborLtoI);
+//logger.debug('TEEP Const Values array set as:', cborLtoI);
 
-//ref.    ; algorithm identifiers defined in the IANA COSE Algorithms Registry
+//ref. algorithm identifiers defined in the IANA COSE Algorithms Registry
 const COSE_alg_es256 = -7;
 const COSE_alg_eddsa = -8;
 const COSE_alg_ps256 = -37;
@@ -51,8 +72,9 @@ const COSE_alg_rsa_oaep_256 = -41;
 const COSE_alg_rsa_oaep_512 = -42;
 const COSE_alg_accm_16_64_128 = 10;
 const COSE_alg_hmac_256 = 5;
+const COSE_alg_a128gcm = 1;
 
-//ref. draft-ietf-teep-protocol-10#section-8
+//ref. draft-ietf-teep-protocol-12#section-8.1
 //cipher-suite
 const COSE_Sign1_Tagged = 18;
 const TEEP_operation_sign1_eddsa = [COSE_Sign1_Tagged, COSE_alg_eddsa];
@@ -60,6 +82,10 @@ const TEEP_operation_sign1_es256 = [COSE_Sign1_Tagged, COSE_alg_es256];
 
 const TEEP_cipher_suite_sign1_eddsa = [TEEP_operation_sign1_eddsa];
 const TEEP_cipher_suite_sign1_es256 = [TEEP_operation_sign1_es256];
+
+//ref. draft-ietf-teep-protocol-12#section-8.2
+const SUIT_SHA256_ES256_HPKE_A128GCM = [COSE_alg_es256, COSE_alg_a128gcm];
+const SUIT_SHA256_EDDSA_HPKE_A128GCM = [COSE_alg_eddsa, COSE_alg_a128gcm];
 
 //ref. draft-ietf-teep-protocol-06#apppendix-C
 const TEEP_FRESHNESS_NONCE = 0;
@@ -73,6 +99,7 @@ const TEEP_ERR_UNSUPPORTED_FRESHNESS_MECHANISMS = 3;
 const TEEP_ERR_UNSUPPORTED_MSG_VERSION = 4;
 const TEEP_ERR_UNSUPPORTED_CIPHER_SUITES = 5;
 const TEEP_ERR_BAD_CERTIFICATE = 6;
+const TEEP_ERR_ATTESTATION_REQUIRED = 7;
 const TEEP_ERR_CERTIFICATE_EXPIRED = 9;
 const TEEP_ERR_TEMPORARY_ERROR = 10;
 const TEEP_ERR_MANIFEST_PROCESSING_FAILED = 17;
@@ -82,7 +109,7 @@ var init = function () {
     return false;
 }
 
-var initMessage = async function () { //generate queryRequest Object
+var initMessage = async function (tam_attestation = false, challenge) { //generate queryRequest Object
     // see draft-ietf-teep-protocol-06#section-4.4
     var queryRequest = new Object();
     queryRequest.TYPE = TEEP_TYPE_query_request; // TYPE = 1 corresponds to a QueryRequest message sent from the TAM to the TEEP Agent.
@@ -93,21 +120,44 @@ var initMessage = async function () { //generate queryRequest Object
     // let initTokenView = new DataView(initToken);
     // initTokenView.setUint32(0, 0x77777777); //2004318071
     // initTokenView.setUint32(4, 0x77777777);
-    initToken = await tokenManager.generateToken();
-    queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
-
+    if (!request_config['attestation']) { // When attestation bit is on, token isn't embbeded in QueryRequest.
+        initToken = await tokenManager.generateToken();
+        queryRequest["token"] = initToken; // The value in the TOKEN field is used to match requests to responses.
+    }
     //supported-freshness-mechanisms
     queryRequest["supported-freshness-mechanisms"] = [TEEP_FRESHNESS_NONCE];
     //supported-cipher-suites
-    queryRequest["supported-cipher-suites"] = [TEEP_cipher_suite_sign1_es256];
+    queryRequest["supported-teep-cipher-suites"] = [TEEP_cipher_suite_sign1_es256];
+    //supported-suit-cose-profiles
+    queryRequest["supported-suit-cose-profiles"] = [SUIT_SHA256_ES256_HPKE_A128GCM];
     //data-item-requested
-    queryRequest["data-item-requested"] = 0b0010; // only request is Installed Trusted Apps lists in device
+    let data_item_request_val = TEEP_DATA_REQUESTED_ITEMS.reduce((val, key, i) => {
+        //logger.debug(request_config[key] + " " + val + " " + key + " " + i);
+        if (request_config[key]) {
+            return val | (1 << i);
+        } else {
+            return val;
+        }
+    }, 0);
+    queryRequest["data-item-requested"] = data_item_request_val;
 
-    console.log(queryRequest);
+    // rats
+    if (request_config["attestation"]) {
+        queryRequest["challenge"] = await rats.generateChallenge(); // set Challenge
+    }
+
+    // embedding TAM's attestation data
+    if (tam_attestation) {
+        // If you need embedding ARs, modify following codes.
+        queryRequest["attestation-payload"] = await rats.generateTAM_EAT_Evidence(challenge);
+        //queryRequest["attestation-payload-format"]
+    }
+
+    logger.debug(queryRequest);
     return queryRequest;
 }
 
-var parse = async function (obj, req) {
+var parse = async function (obj, req, kid = null) {
     logger.info("TEEP-Protocol:parse");
     let ret = null;
     //check TEEP Protocol message
@@ -118,7 +168,7 @@ var parse = async function (obj, req) {
 
     switch (obj.TYPE) {
         case TEEP_TYPE_query_response: //queryResponse
-            ret = await parseQueryResponse(obj, req);
+            ret = await parseQueryResponse(obj, req, kid);
             break;
         case TEEP_TYPE_teep_success:
             // Success
@@ -127,8 +177,10 @@ var parse = async function (obj, req) {
             break;
         case TEEP_TYPE_teep_error:
             // Error
-            await parseErrorMessage(obj);
-            return;
+            ret = await parseErrorMessage(obj);
+            if (ret == null) {
+                return;
+            }
             break;
         default:
             logger.error("ERR!: cannot handle this message type :" + obj.TYPE);
@@ -138,115 +190,143 @@ var parse = async function (obj, req) {
     return ret;
 }
 
-var parseQueryResponse = async function (obj, req) {
-    logger.info("*" + arguments.callee.name);
-    // selected version
-    if (typeof obj.SELECTED_VERSION !== 'undefined') {
-        logger.info("Selected Version is " + obj.SELECTED_VERSION);
-        // check the version
-    }
+var parseQueryResponse = async function (obj, req, kid = null) {
+    try {
+        //logger.info("*" + arguments.callee.name);
+        // selected version
+        if (typeof obj.SELECTED_VERSION !== 'undefined') {
+            logger.info("Selected Version is " + obj.SELECTED_VERSION);
+            // check the version
+        }
 
-    //verify token
-    logger.debug(obj.TOKEN);
-    let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
-    if (!isValidToken) {
-        logger.error("Claimed token is not valid.")
-    }
+        // verify token
+        if (!request_config["attestation"]) {
+            logger.debug(obj.TOKEN);
+            let isValidToken = await tokenManager.consumeToken(obj.TOKEN);
+            if (!isValidToken) {
+                logger.error("Claimed token is not valid.")
+            }
+        }
 
-    logger.debug(obj.TA_LIST);
-    logger.debug(obj.UNNEEDED_TC_LIST);
-    //console.log(deleteFlg);
+        // ciphersuite
+        if (typeof obj.SELECTED_TEEP_CIPHER_SUITE !== 'undefined') {
+            logger.info("Selected Cipher Suite is " + obj.SELECTED_TEEP_CIPHER_SUITE);
+            // check whether the claimed suite is available in TAM
+            // set the algorithm and key according to the claimed suite
+        }
 
-    // let installed = false;
-    // if (Array.isArray(obj.TA_LIST)) {
-    //     obj.TA_LIST.filter(x => {
-    //         installed = (x === trustedAppUUID);
-    //     });
-    // }
+        // attestation
+        if (request_config["attestation"]) {
+            if (typeof obj.ATTESTATION_PAYLOAD_FORMAT !== 'undefined') {
+                logger.info("Attestation payload format is " + obj.ATTESTATION_PAYLOAD_FORMAT);
+            } else {
+                logger.info("Attestation payload format isn't contained in QueryRequest. Payload is supposed to be application/eat+cwt; eat_profile=https://datatracker.ietf.org/doc/html/draft-ietf-teep-protocol-12");
+            }
+            if (typeof obj.ATTESTATION_PAYLOAD !== 'undefined') {
+                logger.info("QueryResponse contains Evidence.");
+                let eat_payload = await rats.verifyEAT(obj.ATTESTATION_PAYLOAD, obj.ATTESTATION_PAYLOAD_FORMAT, kid);
+                logger.info(eat_payload);
+            }
+        }
 
-    // ciphersuite
-    if (typeof obj.SELECTED_CIPHER_SUITE !== 'undefined') {
-        logger.info("Selected Cipher Suite is " + obj.SELECTED_CIPHER_SUITE);
-        // check whether the claimed suite is available in TAM
-        // set the algorithm and key according to the claimed suite
-    }
+        // trusted-components
+        if (request_config["trusted-components"]) {
+            if (typeof obj.TC_LIST !== 'undefined') {
+                logger.info("QueryResponse contains tc-list:");
+                logger.debug(obj.TC_LIST);
+            }
+        }
 
-    // attestation
-    if (typeof obj.EVIDENCE_FORMAT !== 'undefined') {
-        logger.info("Evidence format is " + obj.EVIDENCE_FORMAT);
-    }
-    if (typeof obj.EVIDENCE !== 'undefined') {
-        logger.info("QueryResponse contains Evidence.");
-    }
+        // building the response
+        let trustedAppUpdate = new Object();
+        trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
+        trustedAppUpdate.TOKEN = await tokenManager.generateToken();
 
-    // building the response
-    let trustedAppUpdate = new Object();
-    trustedAppUpdate.TYPE = TEEP_TYPE_update; // TYPE = 3 corresponds to a TrustedAppUpdate message sent from the TAM to the TEEP Agent. 
-    trustedAppUpdate.TOKEN = await tokenManager.generateToken();
+        // choosing update rule from rules.json
+        let deviceName;
+        if (keyManager.getDeviceNamebyKid(kid) !== undefined) { // choose by QueryResponse's header kid
+            deviceName = keyManager.getDeviceNamebyKid(kid);
+        }
+        let rule = null;
+        if (deviceName in rules) {
+            rule = rules[deviceName];
+            logger.info("Use " + deviceName + "'s rule.");
+        } else {
+            logger.error("cannot find [" + deviceName + "] device rule in rules.json.");
+            // temporary choosing
+            let temp = Object.entries(rules)[0];
+            rule = rules[temp[0]];
+            logger.warn("Use " + temp[0] + "'s rule.");
+        }
 
-    // choosing install/remove TA along with rules.json
-    let deviceId = "teep-agent"; // set by attestation result
-    console.log(rules);
-    let rule = null;
-    if (deviceId in rules) {
-        rule = rules[deviceId];
-    } else {
-        logger.error("cannot find device rule in config.json");
-    }
-    console.log(rule.rules);
+        logger.debug(rule.rules);
 
-    // retrieve the responsed condition
-    logger.debug(obj.TA_LIST);
-    // obj.TA_LIST.forEach(x => x.forEach((val,key)=>console.log(val + " from " + key)));
-    let cond_arr = [];
-    obj.TA_LIST.map(x => {
-        // x is Map (component-id => [* SUIT_Component_Identifier])
-        // SUIT_Component_Identifier is bstr array
-        let SUIT_idenfiers = x.get(16);
-        let arr = [];
-        SUIT_idenfiers.forEach(y => arr.push(Buffer.from(y)));
-        cond_arr.push(arr);
-    });
-    logger.debug(cond_arr);
+        // parse requested-tc-list
+        let cond_arr = [];
 
-    // translate rule's list to Buffer array
-    let tmp_rules = [];
-    let tmp_updates = []; // update field's array
-    rule.rules.forEach(x => {
-        if (x.installed !== null) {
-            let arr = x.installed.map(y => {
-                return y.map(z => Buffer.from(z, 'hex'));
+        if (obj.REQUESTED_TC_LIST) {
+            //logger.debug(obj.REQUESTED_TC_LIST);
+            cond_arr = obj.REQUESTED_TC_LIST.map(x => {
+                // x is Map (component-id => [* SUIT_Component_Identifier])
+                // SUIT_Component_Identifier is bstr array
+                let SUIT_idenfiers = x.get(16);
+                let merged_identifier = SUIT_idenfiers.reduce((val, merged) => {
+                    merged = Buffer.concat(Buffer.from(val));
+                }); //
+                //logger.debug(merged_identifier);
+                return merged_identifier;
             });
-            tmp_rules.push(arr);
-            tmp_updates.push(x.update);
+        } else {
+            // requested-tc-list isn't set in QueryRequest.
+            cond_arr = null;
         }
-    });
-    logger.debug(tmp_rules);
-    logger.debug(tmp_updates);
+        //logger.debug(cond_arr);
 
-    // seek the matched rule
-    let update_rule = null;
-    let i = 0;
-    update_rule = tmp_rules.find((x, index) => {
-        console.log(x); console.log(cond_arr); console.log(JSON.stringify(x) == JSON.stringify(cond_arr));
-        if (JSON.stringify(x) == JSON.stringify(cond_arr)) {
-            i = index;
-            return true;
+        // seek the matched condition in rules
+        let matchedRule;
+        if (cond_arr == null) {
+            // when requested-tc-list isn't 
+            let no_requested_rule = rule.rules.find(x => { if (x.requested == null) { return x; } });
+            matchedRule = no_requested_rule !== undefined ? no_requested_rule : undefined;
+        } else {
+            matchedRule = rule.rules.find(x => {
+                if (x.requested == null) {
+                    return;
+                }
+                let requestedRuleArr = x.requested.map(y => { return Buffer.from(y); });
+                // compare arrays
+                if (cond_arr.length !== requestedRuleArr.length) {
+                    return;
+                }
+                let srt_cond_arr = cond_arr.slice().sort();
+                let srt_rule_arr = requestedRuleArr.slice().sort();
+                for (let i = 0; i < srt_cond_arr.length; i++) {
+                    if (!srt_cond_arr[i].equals(srt_rule_arr[i])) {
+                        return;
+                    }
+                }
+                return x.update;
+            });
         }
-    });
-    logger.debug(update_rule);
-    logger.debug(tmp_updates[i]);
 
-    if (update_rule !== null) {
-        trustedAppUpdate["manifest-list"] = [];
-        // embed the SUIT manifests
-        for (const target of tmp_updates[i]) {
-            let suitContents = fs.readFileSync('./TAs/' + target);
-            trustedAppUpdate["manifest-list"].push(suitContents);
+        logger.debug("Use the following rule: " + matchedRule);
+
+        if (matchedRule) {
+            trustedAppUpdate["manifest-list"] = [];
+            // embed the SUIT manifests
+            for (const target of matchedRule.update) {
+                let suitContents = fs.readFileSync('./TAs/' + target);
+                trustedAppUpdate["manifest-list"].push(suitContents);
+            }
+        } else {
+            logger.warn("TAM cannot find a valid rule corresponded with requested-tc-list. Update message doesn't contain any SUIT manifests.");
         }
+
+        return trustedAppUpdate;
+    } catch (err) {
+        logger.error(err);
+        return null;
     }
-
-    return trustedAppUpdate;
 }
 
 var parseSuccessMessage = async function (obj) {
@@ -293,6 +373,18 @@ var parseErrorMessage = async function (obj) {
         logger.info("Supported Versions are " + obj.VERSIONS);
     }
 
+    // Agent requires TAM's attestation
+    if (obj.ERROR_CODE == TEEP_ERR_ATTESTATION_REQUIRED) {
+        logger.info("TEEP Agent requires TAM's attestation.");
+        let queryRequest;
+        if (obj.CHALLENGE) {
+            queryRequest = await initMessage(true, obj.CHALLENGE);
+        } else {
+            queryRequest = await initMessage(true);
+        }
+        return queryRequest;
+    }
+
     return;
 }
 
@@ -304,12 +396,13 @@ var buildCborArray = function (obj) {
         case TEEP_TYPE_query_request: // QueryRequest
             let options = new Map(); // option is mandatory field even though no elements.
             CBORLabels.forEach((key, idx) => {
-                if (obj.hasOwnProperty(key) && key !== "supported-cipher-suites") { //supported-cipher-suites isn't include in options
+                if (obj.hasOwnProperty(key) && key !== "supported-teep-cipher-suites" && key !== "supported-suit-cose-profiles") { //supported-cipher-suites isn't include in options
                     options.set(idx + 1, obj[key]);
                 }
             });
             cborArray.push(options);
-            cborArray.push(obj["supported-cipher-suites"]); // mandatory
+            cborArray.push(obj["supported-teep-cipher-suites"]); // mandatory
+            cborArray.push(obj["supported-suit-cose-profiles"]); // mandatory
             cborArray.push(obj["data-item-requested"]); // mandatory
             logger.debug(obj);
             logger.debug(cborArray);
@@ -317,14 +410,14 @@ var buildCborArray = function (obj) {
         case TEEP_TYPE_update: // TrustedAppUpdate
             logger.debug(obj);
             let TAUpdateOption = new cbor.Map();
-            if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
-                TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
-            }
             TAUpdateOption.set(cborLtoI['token'], obj.TOKEN); // 20: token * this token is not neccessary
             if (obj.hasOwnProperty("TC_LIST")) { // 8: tc-list (unneeded and deleting TC-LIST)
                 TAUpdateOption.set(cborLtoI['tc-list'], obj.TC_LIST);
             }
             // * $$update-extensions and * $$teep-option-extensions added if needed.
+            if (obj.hasOwnProperty("manifest-list")) { // 10: manifest-list (ref.CBORLabels)
+                TAUpdateOption.set(cborLtoI['manifest-list'], obj["manifest-list"]);
+            }
             cborArray.push(TAUpdateOption);
             break;
         default:
@@ -354,34 +447,53 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[6])) { //eat Buffer=>String
                 receivedObj[CBORLabels[6]] = receivedObj[CBORLabels[6]].toString('hex');
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // ta-list Buffer=>String
-                // receivedObj[CBORLabels[7]] = receivedObj[CBORLabels[7]].map(function (val) {
-                //     return val.toString('hex');
-                // });
-                // receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
-                receivedObj.TA_LIST = receivedObj[CBORLabels[7]];
-                logger.debug(receivedObj.TA_LIST);
+            if (request_config["trusted-components"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[7]) && Array.isArray(receivedObj[CBORLabels[7]])) { // tc-list array
+                    receivedObj.TC_LIST = receivedObj[CBORLabels[7]];
+                    //logger.debug(receivedObj.TC_LIST);
+                } else {
+                    logger.error("QueryResponse doesn't contain a trusted-component list while tc-list is requested in QueryRequest.");
+                }
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-tc-list Buffer=>String
+            if (receivedObj.hasOwnProperty(CBORLabels[14]) && Array.isArray(receivedObj[CBORLabels[14]])) { // unneeded-manifest-list Buffer=>String
                 receivedObj[CBORLabels[14]] = receivedObj[CBORLabels[14]].map(function (val) {
                     return val.toString('hex');
                 });
-                receivedObj.UNNEEDED_TC_LIST = receivedObj[CBORLabels[14]];
+                receivedObj.UNNEEDED_MANIFEST_LIST = receivedObj[CBORLabels[14]];
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[19])) {
-                receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
+            if (!request_config["attestation"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[19])) {
+                    receivedObj.TOKEN = receivedObj[CBORLabels[19]].toString('hex'); // Buffer => String(hex)
+                } else {
+                    logger.warn("QueryResponse doesn't contain a token.");
+                }
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[12])) {
-                receivedObj.EVIDENCE_FORMAT = receivedObj[CBORLabels[12]]; //text
+
+            if (receivedObj.hasOwnProperty(CBORLabels[13]) && Array.isArray(receivedObj[CBORLabels[13]])) { // requested-tc-list
+                receivedObj.REQUESTED_TC_LIST = receivedObj[CBORLabels[13]];
             }
-            if (receivedObj.hasOwnProperty(CBORLabels[6])) {
-                receivedObj.EVIDENCE = receivedObj[CBORLabels[6]]; // bstr
+            if (request_config["attestation"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[12])) {
+                    receivedObj.ATTESTATION_PAYLOAD_FORMAT = receivedObj[CBORLabels[12]]; //text
+                }
+                if (receivedObj.hasOwnProperty(CBORLabels[6])) {
+                    receivedObj.ATTESTATION_PAYLOAD = receivedObj[CBORLabels[6]]; // bstr
+                } else {
+                    logger.error("QueryResponse doesn't contain an Attestation payload while attestation is requested in QueryRequest.");
+                }
             }
             if (receivedObj.hasOwnProperty(CBORLabels[4])) {
-                receivedObj.SELECTED_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
+                receivedObj.SELECTED_TEEP_CIPHER_SUITE = receivedObj[CBORLabels[4]]; //array
             }
             if (receivedObj.hasOwnProperty(CBORLabels[5])) {
                 receivedObj.SELECTED_VERSION = receivedObj[CBORLabels[5]]; // array
+            }
+            if (request_config["suit-reports"]) {
+                if (receivedObj.hasOwnProperty(CBORLabels[18])) {
+                    receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+                } else {
+                    logger.error("QueryResponse doesn't contain suit-reports while suit-report is requested in QueryRequest.");
+                }
             }
             break;
         case TEEP_TYPE_teep_success: // Success
@@ -407,7 +519,7 @@ var parseCborArrayHelper = function (arr) {
             if (receivedObj.hasOwnProperty(CBORLabels[19])) {
                 receivedObj.TOKEN = receivedObj[CBORLabels[19]];
             }
-            receivedObj.ERROR_CODE = arr[2];
+            receivedObj.ERROR_CODE = arr[2]; //mandatory
             if (receivedObj.hasOwnProperty(CBORLabels[0])) {
                 receivedObj.SUPPORTED_CIPHER_SUITES = receivedObj[CBORLabels[0]]; //array
             }
@@ -419,6 +531,9 @@ var parseCborArrayHelper = function (arr) {
             }
             if (receivedObj.hasOwnProperty(CBORLabels[18])) {
                 receivedObj.SUIT_REPORTS = receivedObj[CBORLabels[18]]; //array
+            }
+            if (receivedObj.hasOwnProperty(CBORLabels[1])) {
+                receivedObj.CHALLENGE = receivedObj[CBORLabels[1]];
             }
             break;
         default:

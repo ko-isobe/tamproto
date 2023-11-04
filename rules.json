@@ -1,6 +1,6 @@
 {
-    "optee-armadillo-agent": {
-        "key": "teep_agent_prime256v1_pub_kid.jwk",
+    "teep-agent": {
+        "key": "teep_agent_prime256v1_pub.jwk",
         "rules": [
             {
                 "requested": null,
@@ -10,7 +10,7 @@
             },
             {
                 "requested": [
-                    "tc2.suit"
+                    "8d82573a-926d-4754-9353-32dc29997f74"
                 ],
                 "update": [
                     "tc2.suit"
@@ -26,7 +26,7 @@
         ]
     },
     "intel_sgx_test": {
-        "key": "teep_sgx_agent_prime256v1_pub.jwk",
+        "key": "teep_agent_prime256v1_pub_kid.jwk",
         "rules": [
             {
                 "requested": null,
@@ -39,7 +39,7 @@
                     "suit-enclave-hello.suit"
                 ],
                 "update": [
-                    "suit-enclave-hello.suit"
+                    "dummy2.ta"
                 ]
             }
         ]
