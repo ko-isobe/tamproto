@@ -205,9 +205,9 @@ module.exports.generateTAM_EAT_Evidence = async function (challenge) {
 
     evidenceBody.set(10, challenge); // EAT nonce
     evidenceBody.set(260, "1.0.0"); // EAT hardware version
-    evidenceBody.set(256, Buffer.from('010000000000','hex')); // EAT ueid
-    evidenceBody.set(258, Buffer.from('1234567890abcdef','hex')); // EAT oemid
-    evidenceBody.set(259, Buffer.from('87654321','hex')); // EAT hwmodel
+    evidenceBody.set(256, Buffer.from('010000000000', 'hex')); // EAT ueid
+    evidenceBody.set(258, Buffer.from('1234567890abcdef', 'hex')); // EAT oemid
+    evidenceBody.set(259, Buffer.from('87654321', 'hex')); // EAT hwmodel
     // evidenceBody.set()) // EAT manifests
 
     let plainPayload = cbor.encode(evidenceBody);
@@ -245,22 +245,22 @@ const calculateKeyThumbprintSHA256 = function (obj) {
     // ref. draft-ietf-cose-key-thumbprint-01
     // IMPORTANT: Detereministic CBOR and specified elements are REQUIRED.
     let retObj = new cbor.Map();
-    switch (obj.kty) {
-        case 1: // kty: OKP
-            retObj.set(1, obj.kty);  // 0x01
-            retObj.set(-1, obj.crv); // 0x20 (0b001_00001)
-            retObj.set(-2, Buffer.from(obj.x, 'hex')); // 0x21 (0b001_00010)
+    switch (obj.kty) { // obj is expected as JWK in tamproto. See keymanager.js.
+        case "OKP": // kty: OKP
+            retObj.set(1, 1);  // 0x01
+            retObj.set(-1, obj.crv); // 0x20 (0b001_00001) TBF JWK crv=> COSE Key Curve
+            retObj.set(-2, Buffer.from(obj.x, 'base64')); // 0x21 (0b001_00010)
             break;
-        case 2: // kty: EC2
-            retObj.set(1, obj.kty);
-            retObj.set(-1, obj.crv);
-            retObj.set(-2, Buffer.from(obj.x, 'hex'));
-            retObj.set(-3, Buffer.from(obj.y, 'hex')); // 0x22 (0b001_00011)
+        case "EC": // kty: EC2,1
+            retObj.set(1, 2);
+            retObj.set(-1, 1);
+            retObj.set(-2, Buffer.from(obj.x, 'base64'));
+            retObj.set(-3, Buffer.from(obj.y, 'base64')); // 0x22 (0b001_00011)
             break;
-        case 3: // kty: RSA
-            retObj.set(1, obj.kty);
-            retObj.set(-1, Buffer.from(obj.n, 'hex'));
-            retObj.set(-2, Buffer.from(obj.e, 'hex'));
+        case "RSA": // kty: RSA
+            retObj.set(1, 3);
+            retObj.set(-1, Buffer.from(obj.n, 'base64'));
+            retObj.set(-2, Buffer.from(obj.e, 'base64'));
             break;
         default:
             console.error("unsupported key type");
