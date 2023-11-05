@@ -1,7 +1,9 @@
 {
   "key": {
-    "TAM_priv": "teep_ecP256.jwk",
-    "TAM_pub": "teep_ecP256.jwk",
+    "TAM_ES256_priv": "teep_ecP256.jwk",
+    "TAM_ES256_pub": "teep_ecP256.jwk",
+    "TAM_EDDSA_priv": "teep_ED25519_priv.jwk",
+    "TAM_EDDSA_pub": "teep_ED25519_pub.jwk",
     "TEE_priv": "teep_agent_prime256v1.jwk",
     "TEE_pub": "teep_agent_prime256v1_pub.jwk",
     "Verify": "nverifier_pub.jwk"

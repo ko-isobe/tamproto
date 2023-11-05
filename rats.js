@@ -200,7 +200,7 @@ const verifyCnf = function (payload, kid) {
 }
 
 module.exports.generateTAM_EAT_Evidence = async function (challenge) {
-    let EvidenceSignKey = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
+    let EvidenceSignKey = JSON.parse(keyManager.getKeyBinary("TAM_ES256_priv").toString());
     let evidenceBody = new Map();
 
     evidenceBody.set(10, challenge); // EAT nonce

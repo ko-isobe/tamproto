@@ -69,21 +69,41 @@
         <form action="<%= fullURL+'/panel/'%>key_config" method="POST">
             <table>
                 <tr>
-                    <td>TAM Private Key</td>
+                    <td>TAM ES256 Private Key</td>
                     <td>
-                        <select name="tam_priv" size="1">
+                        <select name="tam_es256_priv" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>" <% if (value.name === key_TAMpriv){ %> selected <% } %>><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAM_ES256_priv){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>
                 </tr>
                 <tr>
-                    <td>TAM Public Key</td>
+                    <td>TAM ES256 Public Key</td>
                     <td>
-                        <select name="tam_pub" size="1">
+                        <select name="tam_es256_pub" size="1">
                             <% files.forEach(function(value) { %>
-                                <option value="<%= value.name %>" <% if (value.name === key_TAMpub){ %> selected <% } %>><%= value.name %></option>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAM_ES256_pub){ %> selected <% } %>><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>TAM EdDSA Private Key</td>
+                    <td>
+                        <select name="tam_eddsa_priv" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAM_EDDSA_priv){ %> selected <% } %>><%= value.name %></option>
+                            <% }); %>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <td>TAM EdDSA Public Key</td>
+                    <td>
+                        <select name="tam_eddsa_pub" size="1">
+                            <% files.forEach(function(value) { %>
+                                <option value="<%= value.name %>" <% if (value.name === key_TAM_EDDSA_pub){ %> selected <% } %>><%= value.name %></option>
                             <% }); %>
                         </select>
                     </td>

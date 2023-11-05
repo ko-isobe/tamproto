@@ -8,7 +8,7 @@ ARG NODE_ENV
 ENV NODE_ENV $NODE_ENV
 
 COPY package.json /usr/src/app/
-RUN apk add --no-cache --virtual .gyp python3 make g++ \
+RUN apk add --no-cache --virtual .gyp python3 make g++ git \
     && apk --no-cache add avahi-dev \
     && npm install \
     && apk del .gyp

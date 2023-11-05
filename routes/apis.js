@@ -159,7 +159,7 @@ router.post('/tam_cose', async function (req, res, next) {
    });
 
    //retrieve TAM private key
-   let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_priv").toString());
+   let TamKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_ES256_priv").toString());
    let TeePubKeyObj = JSON.parse(keyManager.getKeyBinary("TEE_pub").toString()); //use default Agent key
 
    if (req.headers['content-length'] != 0) { // request body is not null. Verify the TEEP Agent's signature
@@ -204,6 +204,36 @@ router.post('/tam_cose', async function (req, res, next) {
    } else { // request body is null. Needless to verify the request
       //Initialize TEEP-P
       ret = await teepImplHandler(req, req.body);
+      let cborResponseArray = teepP.buildCborArray(ret);
+      logger.debug(cborResponseArray);
+      //logger.debug(TamKeyObj);
+      let plainPayload = await cbor.encodeAsync(cborResponseArray);
+      // QueryRequest is signed in COSE_Sign.
+      let TamEDDSAKeyObj = JSON.parse(keyManager.getKeyBinary("TAM_EDDSA_priv").toString());
+      // build signers array.
+      const ecdsa_signer = {
+         key: {
+            d: Buffer.from(TamKeyObj.d, 'base64')
+         },
+         p: { alg: 'ES256' },
+         u: { kid: 'ecdsa' }
+      };
+      const eddsa_signer = {
+         key: {
+            d: Buffer.from(TamEDDSAKeyObj.d, 'base64')
+         },
+         p: { alg: 'EdDSA' },
+         u: { kid: 'eddsa' }
+      };
+      const headers = {
+         p: {},
+         u: null
+      };
+      let cosePayload = await cose.sign.create(headers, plainPayload, [ecdsa_signer, eddsa_signer]);
+      res.send(cosePayload);
+      res.end();
+      logger.debug("Response from TAM / Content-length:", res.get('content-length'), "statusCode: ", res.statusCode);
+      return;
    }
 
    //sign the response 

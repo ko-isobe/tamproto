@@ -13,16 +13,20 @@ var configJson = require('./config.json');
 var rulesJson = require('./rules.json');
 
 var keyFilenameConfig = {
-    "TAM_priv": "",
-    "TAM_pub": "",
+    "TAM_ES256_priv": "",
+    "TAM_ES256_pub": "",
+    "TAM_EDDSA_priv": "",
+    "TAM_EDDSA_pub": "",
     "TEE_priv": "",
     "TEE_pub": "",
     "Verify": ""
 };
 
 var keyChain = {
-    "TAM_priv": null,
-    "TAM_pub": null,
+    "TAM_ES256_priv": null,
+    "TAM_ES256_pub": null,
+    "TAM_EDDSA_priv": null,
+    "TAM_EDDSA_pub": null,
     "TEE_priv": null,
     "TEE_pub": null,
     "Verify": null

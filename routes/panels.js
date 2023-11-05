@@ -101,8 +101,10 @@ const getKeysList = (req, res, next) => {
     // res.locals.key_TEEpriv = nconf.get('key:TEE_priv');
     // res.locals.key_TEEpub = nconf.get('key:TEE_pub');
     let configs = keyManager.getAllKeyName();
-    res.locals.key_TAMpriv = configs.TAM_priv;
-    res.locals.key_TAMpub = configs.TAM_pub;
+    res.locals.key_TAM_ES256_priv = configs.TAM_ES256_priv;
+    res.locals.key_TAM_ES256_pub = configs.TAM_ES256_pub;
+    res.locals.key_TAM_EDDSA_priv = configs.TAM_EDDSA_priv;
+    res.locals.key_TAM_EDDSA_pub = configs.TAM_EDDSA_pub;
     res.locals.key_TEEpriv = configs.TEE_priv;
     res.locals.key_TEEpub = configs.TEE_pub;
     res.locals.key_Verify = configs.Verify;
@@ -144,8 +146,10 @@ router.post('/key_config', getKeysList, function (req, res) {
     // console.log(nconf.get('key'));
     // //nconf.save();
     //new keyManager
-    keyManager.setKeyName("TAM_priv", req.body.tam_priv);
-    keyManager.setKeyName("TAM_pub", req.body.tam_pub);
+    keyManager.setKeyName("TAM_ES256_priv", req.body.tam_es256_priv);
+    keyManager.setKeyName("TAM_ES256_pub", req.body.tam_es256_pub);
+    keyManager.setKeyName("TAM_EDDSA_priv", req.body.tam_eddsa_priv);
+    keyManager.setKeyName("TAM_EDDSA_pub", req.body.tam_eddsa_pub);
     keyManager.setKeyName("TEE_priv", req.body.tee_priv);
     keyManager.setKeyName("TEE_pub", req.body.tee_pub);
     keyManager.setKeyName("Verify", req.body.verifier);
